@@ -10,7 +10,12 @@
         "http://localhost:3000/learn/02-gpus-the-baseline",
         "http://localhost:3000/learn/03-systolic-designs",
         "http://localhost:3000/learn/04-wafer-scale",
-        "http://localhost:3000/learn/05-compiler-scheduled"
+        "http://localhost:3000/learn/05-compiler-scheduled",
+        "http://localhost:3000/learn/06-reconfigurable-dataflow",
+        "http://localhost:3000/learn/07-meshes-of-cores",
+        "http://localhost:3000/learn/08-fpgas-and-npus",
+        "http://localhost:3000/learn/09-in-memory-compute",
+        "http://localhost:3000/learn/10-choosing"
       ],
       "numberOfRuns": 3
     },
