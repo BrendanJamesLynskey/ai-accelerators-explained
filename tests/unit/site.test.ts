@@ -6,10 +6,20 @@ import { fmtBytes, fmtFlops, fmtInt, fmtTime, pct, trim } from "@/lib/format";
 import { SECTIONS, getSectionMeta, isValidSlug } from "@/lib/mdx/sections";
 import { PLACEMENT_COLOUR, TERM_COLOUR } from "@/lib/viz/palette";
 import { SITE_NAME, SITE_TITLE, deck, repoFile } from "@/lib/site";
+import { nameOf, placeOf } from "@/components/ui/SiteSwitch";
 
 describe("site", () => {
-  it("names itself as the switch will in 37C", () => {
+  it("names itself as the shared switch does", () => {
     expect(SITE_TITLE.startsWith(`${SITE_NAME}:`)).toBe(true);
+    expect(nameOf("accelerators")).toBe(SITE_NAME);
+    expect(placeOf("accelerators")).toEqual({
+      track: "Hardware",
+      site: "Accelerators",
+      title: SITE_TITLE,
+    });
+    // the Systolic site keeps its key; only its label and title changed
+    expect(nameOf("silicon")).toBe("Systolic Arrays Explained");
+    expect(placeOf("silicon").site).toBe("Systolic");
   });
   it("links deck slides and repository files", () => {
     expect(deck("Google_TPU_03_Systolic_Arrays", 7)).toBe(

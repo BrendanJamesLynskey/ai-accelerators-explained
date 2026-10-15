@@ -191,26 +191,6 @@
   border-color: #0072b2;
 }
 
-/* Until brief 37C adds Accelerators to the shared site switch (a file that
- * must stay byte-identical on every site), the switch's button is relabelled
- * here: its own "Track > Site" text is hidden and this site's place drawn in. */
-[data-switch-prelaunch] [data-site-place] > * {
-  display: none;
-}
-[data-switch-prelaunch] [data-site-place]::before {
-  content: "Hardware";
-  color: rgb(115 115 115);
-}
-[data-switch-prelaunch] [data-site-place]::after {
-  content: " \203A  Accelerators";
-  font-weight: 500;
-}
-@media (prefers-color-scheme: dark) {
-  [data-switch-prelaunch] [data-site-place]::before {
-    color: rgb(163 163 163);
-  }
-}
-
 /* Phones: shrink the animation equations so they fit the panel. */
 @media (max-width: 639px) {
   .eq-panel .katex-display > .katex {
