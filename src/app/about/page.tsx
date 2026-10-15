@@ -158,9 +158,10 @@ export default function AboutPage(): JSX.Element {
           floor (no room for activations, and whole nodes of eight).{" "}
           <strong>Throughput</strong>: MLPerf&apos;s eight H100s reached{" "}
           {formatValue(lookup("val.mlperf-h100.ratio"), "pct")} of the compute
-          ceiling, a typical share for a real serving stack that also runs
-          prefill and attention. <strong>Latency</strong>: for one user on SRAM
-          designs, the published speeds are {trim(b.latency.min * 100, 2)}% to{" "}
+          ceiling, which counts only the output tokens&apos; weight matmuls and
+          leaves out prefill, attention and the serving stack.{" "}
+          <strong>Latency</strong>: for one user on SRAM designs, the published
+          speeds are {trim(b.latency.min * 100, 2)}% to{" "}
           {trim(b.latency.max * 100, 2)}% of the bandwidth bound. That miss is
           the model&apos;s main limit, and the chapters say so: once the weights
           are in SRAM, bandwidth stops being what limits one user, and the
