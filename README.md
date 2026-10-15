@@ -35,13 +35,13 @@ series, and its own three-deck slide series,
 ## Part of
 
 This repository is brief 37 of a programme of companion sites. Part A built
-the model, the sourced data and chapters 1–5; part B (this state) adds
+the model, the sourced data and chapters 1–5; part B added
 chapters 6–10 (dataflow, meshes, FPGAs and NPUs, in-memory compute, and a
-side-by-side comparison) and the deck and hub links; part C adds Accelerators
-to the shared site switch (Hardware = Kernels · Systolic · Accelerators ·
-Racks). Until then the header names the site itself and relabels the switch's
-button "Hardware › Accelerators" (see `src/components/ui/SiteHeader.tsx`),
-because `SiteSwitch.tsx` must stay byte-identical on every site.
+side-by-side comparison) and the deck and hub links; part C (this state) adds
+Accelerators to the shared site switch on every companion site (Hardware =
+Kernels · Systolic · Accelerators · Racks), so the header, like every other
+site's, names the site from `nameOf("accelerators")` and its button says
+"Hardware › Accelerators".
 
 ## Chapters
 
@@ -231,7 +231,7 @@ at commit `c493a2b`:
 | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `tailwind.config.ts`, `src/app/layout.tsx`, `src/app/learn/`, `src/lib/mdx/`, `Layer*.tsx`, `MdxTable.tsx`     | identical apart from titles and chapters                                                                   |
 | `src/components/ui/SiteSwitch.tsx`                                                                             | **byte-identical** to every companion site (sha256 `5b2d9873…`); it has no Accelerators entry until part C |
-| `src/components/ui/SiteHeader.tsx`                                                                             | the brand from `SITE_NAME`, and the switch relabelled in CSS until part C                                  |
+| `src/components/ui/SiteHeader.tsx`                                                                             | the brand from `nameOf("accelerators")` and the switch with `current="accelerators"`                       |
 | `src/components/anim/`, `src/lib/anim/`, `Controls.tsx`, `Callout.tsx`, `Eq.tsx`, `useSvgFont.ts`, `Hatch.tsx` | unchanged                                                                                                  |
 | `src/app/globals.css`, `src/lib/viz/palette.ts`                                                                | placement and time-term colours (`PLACEMENT_COLOUR`, `TERM_COLOUR`) and their equation highlights          |
 | CI, Playwright, Vitest and Lighthouse configs, `scripts/`, `RUNBOOK.md`                                        | adapted (new model, pages and chapters)                                                                    |

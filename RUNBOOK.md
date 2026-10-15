@@ -39,8 +39,7 @@ landing page's bandwidth figures and the specs page's Groq 3 SRAM bandwidth
 (computed by the smoke script with the same model code), the status markers
 and the access date, the about page's validation table, every chapter's MDX
 (a layer, server-rendered KaTeX and the animation's placeholder), and the
-four-track site switch, relabelled "Hardware › Accelerators" for this site
-until brief 37C adds it to the switch. Then open
+four-track site switch with Accelerators current. Then open
 one chapter in a browser and press **Play**, step and scrub: the animations
 run client-side, which the smoke check can't see. With reduce-motion set in
 the OS, nothing should play until you press Play.

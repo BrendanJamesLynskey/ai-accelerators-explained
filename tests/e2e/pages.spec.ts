@@ -61,7 +61,7 @@ for (const scheme of ["light", "dark"] as const) {
   }
 }
 
-test("the site switch: four tracks, the brand names the site, and the button says Hardware › Accelerators until 37C", async ({
+test("the site switch: four tracks, the brand names the site, and the button says Hardware › Accelerators", async ({
   page,
 }) => {
   const menu = page.locator("[data-site-switch='menu']");
@@ -71,20 +71,11 @@ test("the site switch: four tracks, the brand names the site, and the button say
   for (const width of [1280, 1024, 390]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/");
-    // closed: the button reads "Hardware › Accelerators" (relabelled in CSS
-    // until the shared switch has an entry for this site), and the brand names the site
+    // closed: the button reads "<Track> › <Site>", and the brand names the site
     await expect(menu).toBeVisible();
-    const place = menu.locator("summary [data-site-place]");
-    const pseudo = await place.evaluate((el) => [
-      getComputedStyle(el, "::before").content,
-      getComputedStyle(el, "::after").content,
-    ]);
-    expect(pseudo).toEqual(['"Hardware"', '" › Accelerators"']);
-    await expect(menu.locator("summary")).toHaveAccessibleName(
-      /^Hardware › Accelerators\b/,
+    await expect(menu.locator("summary")).toHaveText(
+      /^Hardware\W+Accelerators\W*$/,
     );
-    // the switch's own place text is hidden
-    await expect(place.locator("span").first()).toBeHidden();
     await expect(brand).toHaveText("AI Accelerators Explained");
     await expect(brand.locator("[data-site-place]")).toHaveCount(0);
     await expect(page.locator("header [data-site-place]")).toHaveCount(1);
@@ -128,9 +119,15 @@ test("the site switch: four tracks, the brand names the site, and the button say
       ],
       [
         "silicon",
-        "Silicon",
+        "Systolic",
         "Inside a matrix engine",
         "https://systolic-arrays-explained.vercel.app",
+      ],
+      [
+        "accelerators",
+        "Accelerators",
+        "The families of AI chips",
+        "https://ai-accelerators-explained.vercel.app",
       ],
       [
         "racks",
@@ -217,7 +214,7 @@ test("the site switch: four tracks, the brand names the site, and the button say
     // each track holds its own sites
     for (const [group, n] of [
       ["foundations", 2],
-      ["hardware", 3],
+      ["hardware", 4],
       ["inference", 4],
       ["agents", 6],
     ] as const)
@@ -230,9 +227,10 @@ test("the site switch: four tracks, the brand names the site, and the button say
         name: /^(Foundations|Hardware|Inference|Agents)\b/,
       }),
     ).toHaveCount(0);
-    // this site has no entry yet (37C adds it), so nothing is highlighted
-    await expect(site("accelerators")).toHaveCount(0);
-    await expect(panel.locator("[aria-current]")).toHaveCount(0);
+    // this site is live in the menu and marks itself as the current one
+    await expect(site("accelerators")).toHaveAttribute("aria-current", "true");
+    await expect(panel.locator("[aria-current]")).toHaveCount(1);
+    await expect(panel.getByText("(soon)")).toHaveCount(0);
     await expect(panel.getByText("Compute in transit")).toHaveCount(0);
     // every entry is a 44 px touch target
     expect(

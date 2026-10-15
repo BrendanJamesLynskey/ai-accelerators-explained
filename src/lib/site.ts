@@ -7,9 +7,9 @@
 export const SITE_URL = "https://ai-accelerators-explained.vercel.app";
 
 /**
- * This site's name and title. Until brief 37C adds Accelerators to the
- * shared site switch, the header names the site from here, not from the
- * switch's `nameOf`.
+ * This site's name and title, for the home and About pages and the metadata.
+ * The header takes them from the shared switch (`nameOf("accelerators")`,
+ * `placeOf("accelerators").title`); a unit test keeps the two equal.
  */
 export const SITE_NAME = "AI Accelerators Explained";
 export const SITE_TITLE =

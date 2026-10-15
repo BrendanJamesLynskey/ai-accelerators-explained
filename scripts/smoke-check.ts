@@ -15,8 +15,7 @@
  * /specs and /about must print the model's own numbers (computed here with
  * the same code), every chapter must render its MDX (a layer, server-
  * rendered KaTeX and the animation's placeholder), and the header must carry
- * the four-track site switch, relabelled for this site until brief 37C adds
- * Accelerators to it.
+ * the four-track site switch with Accelerators current.
  */
 import { formatValue, lookup } from "@/lib/accel/values";
 import { SECTIONS } from "@/lib/mdx/sections";
@@ -46,8 +45,9 @@ const SWITCH = [
   'data-site-group="foundations"',
   'data-site-group="hardware"',
   'href="https://ai-racks-explained.vercel.app"',
+  'href="https://ai-accelerators-explained.vercel.app"',
   'href="https://systolic-arrays-explained.vercel.app"',
-  "data-switch-prelaunch",
+  'href="https://ai-accelerators-explained.vercel.app" title="AI Accelerators Explained: the families of AI silicon" data-site-key="accelerators" aria-current="true"',
   'data-site-place="accelerators"',
   'data-site-brand="true" class="focus-ring whitespace-nowrap rounded text-sm font-medium tracking-tight" href="/">AI Accelerators Explained</a>',
   'data-site-key="inference"',
