@@ -15,6 +15,11 @@ const PAGES = [
   "/learn/03-systolic-designs",
   "/learn/04-wafer-scale",
   "/learn/05-compiler-scheduled",
+  "/learn/06-reconfigurable-dataflow",
+  "/learn/07-meshes-of-cores",
+  "/learn/08-fpgas-and-npus",
+  "/learn/09-in-memory-compute",
+  "/learn/10-choosing",
 ];
 
 for (const [scheme, width] of [

@@ -10,6 +10,12 @@ import fx from "../fixtures/accel_fixtures.json";
 
 import {
   chainCaption,
+  chooseCaption,
+  dataflowCaption,
+  edgeCaption,
+  imcCaption,
+  meshCaption,
+  partShort,
   mapCaption,
   mxuCaption,
   sweepCaption,
@@ -18,6 +24,18 @@ import {
 import {
   batchSweep,
   chainSteps,
+  choose,
+  dataflowSteps,
+  edgeSteps,
+  imcLayer,
+  imcSteps,
+  meshLayer,
+  meshSteps,
+  type Choice,
+  type DataflowStep,
+  type EdgeStep,
+  type ImcStep,
+  type MeshStep,
   decode,
   defectSteps,
   mapSteps,
@@ -158,5 +176,145 @@ describe("chapter 5: chain frames", () => {
     expect(chainCaption(g3[0]!, dg, "NVIDIA Groq 3 LPU", null)).toContain(
       "hop latency not disclosed",
     );
+  });
+});
+
+describe("chapter 6: dataflow frames", () => {
+  const py = fx.dataflowSteps.find(
+    (c) => c.model === "llama3-8b" && c.tokens === 2048,
+  )!.out as DataflowStep[];
+  const ts = dataflowSteps("sn40l", "llama3-8b", "bf16", 2048, 1, 2048, true);
+  for (const k of [0, 2, 10])
+    it(`operation ${k + 1}`, () => {
+      expect(ts[k]).toEqual(py[k]);
+      expect(dataflowCaption(ts[k]!, 11, "SN40L RDU")).toBe(
+        dataflowCaption(py[k]!, 11, "SN40L RDU"),
+      );
+    });
+  it("says what the frames show", () => {
+    expect(dataflowCaption(py[2]!, 11, "SN40L RDU")).toContain(
+      "Operation 3 of 11, scores QK^T, on one SN40L RDU.",
+    );
+    expect(py[10]!.f_bytes).toBeLessThan(py[10]!.u_bytes / 2);
+  });
+});
+
+describe("chapter 7: mesh frames", () => {
+  const py = fx.meshSteps.find(
+    (c) => c.model === "llama3-70b" && c.batch === 1 && c.cards === 3,
+  )!.out as MeshStep[];
+  const ts = meshSteps("blackhole", "llama3-70b", "fp8", 1, 1024, 3);
+  const m = meshLayer("blackhole", "llama3-70b", "fp8", 1, 1024, 3);
+  for (const k of [0, 3, 6])
+    it(`step ${k + 1}`, () => {
+      expect(ts[k]).toEqual(py[k]);
+      expect(meshCaption(ts[k]!, 7, 3, m.cores, m.core_sram)).toBe(
+        meshCaption(py[k]!, 7, 3, m.cores, m.core_sram),
+      );
+    });
+  it("says what the frames show", () => {
+    expect(meshCaption(py[3]!, 7, 3, m.cores, m.core_sram)).toContain(
+      "the 3 cards sum their partial results over Ethernet",
+    );
+    expect(meshCaption(py[0]!, 7, 3, m.cores, m.core_sram)).toContain(
+      "into its 120 cores",
+    );
+  });
+});
+
+describe("chapter 8: edge frames", () => {
+  const py = fx.edgeSteps.find(
+    (c) => c.part === "m4" && c.model === "llama3-8b" && c.ctx === 1024,
+  )!.out as EdgeStep[];
+  const ts = edgeSteps("m4", "llama3-8b", 1024);
+  for (const k of [0, 1, 6])
+    it(`width ${py[k]!.bits}`, () => {
+      expect(ts[k]).toEqual(py[k]);
+      expect(edgeCaption(ts[k]!, 7, "Apple M4")).toBe(
+        edgeCaption(py[k]!, 7, "Apple M4"),
+      );
+    });
+  it("says what the frames show", () => {
+    expect(edgeCaption(py[1]!, 7, "Apple M4")).toContain(
+      "8-bit weights, 8.03 GB",
+    );
+    const v = fx.edgeSteps.find(
+      (c) => c.part === "v70" && c.model === "llama3-8b" && c.ctx === 1024,
+    )!.out as EdgeStep[];
+    expect(edgeCaption(v[0]!, 7, "AMD Alveo V70")).toContain(
+      "capacity is not disclosed",
+    );
+  });
+});
+
+describe("chapter 9: crossbar frames", () => {
+  const py = fx.imcSteps.find((c) => c.model === "llama3-8b" && c.phase === 1)!
+    .out as ImcStep[];
+  const ts = imcSteps("llama3-8b", 1);
+  const m = imcLayer("llama3-8b", 1);
+  for (const k of [0, 2, 5])
+    it(`stage ${k}`, () => {
+      expect(ts[k]).toEqual(py[k]);
+      expect(imcCaption(ts[k]!, m, "Llama 3.1 8B")).toBe(
+        imcCaption(py[k]!, m, "Llama 3.1 8B"),
+      );
+    });
+  it("says what the frames show", () => {
+    expect(imcCaption(py[0]!, m, "Llama 3.1 8B")).toContain(
+      "1,789 chips for the whole model",
+    );
+    expect(imcCaption(py[2]!, m, "Llama 3.1 8B")).toContain(
+      "cannot sit in a crossbar",
+    );
+  });
+});
+
+describe("chapter 10: choosing frames", () => {
+  const py = fx.choose.find(
+    (c) =>
+      c.model === "llama3-70b" &&
+      c.batch === 1 &&
+      c.ctx === 1024 &&
+      c.prompt === 2048,
+  )!.out as Choice[];
+  const ts = choose("llama3-70b", 1, 1024, 2048);
+  for (const k of [0, 3, 7])
+    it(`family ${k + 1}`, () => {
+      expect(ts[k]).toEqual(py[k]);
+      expect(
+        chooseCaption(ts[k]!, 8, "Llama 3.1 70B", partShort(ts[k]!.part)),
+      ).toBe(chooseCaption(py[k]!, 8, "Llama 3.1 70B", partShort(py[k]!.part)));
+    });
+  it("says what the frames show", () => {
+    expect(
+      chooseCaption(py[3]!, 8, "Llama 3.1 70B", partShort(py[3]!.part)),
+    ).toContain("needs 308 GroqChips");
+    expect(
+      chooseCaption(py[7]!, 8, "Llama 3.1 70B", partShort(py[7]!.part)),
+    ).toContain("crossbar time only");
+  });
+});
+
+describe("captions: the other branches", () => {
+  it("covers one card, attention, a misfit and undisclosed energy", () => {
+    const one = meshSteps("blackhole", "llama3-70b", "fp8", 1, 1024, 1);
+    const m1 = meshLayer("blackhole", "llama3-70b", "fp8", 1, 1024, 1);
+    expect(meshCaption(one[3]!, 7, 1, m1.cores, m1.core_sram)).toContain(
+      "one card, so nothing to all-reduce",
+    );
+    expect(meshCaption(one[1]!, 7, 1, m1.cores, m1.core_sram)).toContain(
+      "reads its share of the KV cache",
+    );
+    const big = edgeSteps("m4", "llama3-70b", 1024);
+    expect(edgeCaption(big[0]!, 7, "Apple M4")).toContain(
+      "(more than its memory holds)",
+    );
+    const v = edgeSteps("v70", "llama3-8b", 1024);
+    expect(edgeCaption(v[0]!, 7, "AMD Alveo V70")).toContain("J per token");
+    const rows = choose("llama3-70b", 1, 1024, 2048);
+    expect(
+      chooseCaption(rows[1]!, 8, "Llama 3.1 70B", partShort(rows[1]!.part)),
+    ).toContain("energy not disclosed");
+    expect(partShort("h100")).toBe("H100 SXM");
   });
 });

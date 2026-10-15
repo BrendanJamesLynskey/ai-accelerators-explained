@@ -1,0 +1,76 @@
+<CrossbarWidget>
+  <Eq
+    label="A layer's weight matrices cut into crossbar tiles of 256 by 256; each matrix stage takes one analogue multiply, and an exact column sum needs input bits plus weight bits plus log2 of the rows"
+    tex="\begin{gathered} \text{tiles} = \sum_j \htmlClass{hl-tiles}{\left\lceil \tfrac{k_j}{256} \right\rceil \left\lceil \tfrac{n_j}{256} \right\rceil}, \qquad t_{\text{layer}} = 4\, t_{\text{MVM}} \\ \htmlClass{hl-adc}{b_{\text{exact}} = b_x + b_w + \log_2 256} \end{gathered}"
+  />
+</CrossbarWidget>
+
+<Layer kind="concept">
+
+[Systolic Arrays Explained, chapter 8](https://systolic-arrays-explained.vercel.app/learn/08-other-ways) describes the principle: store each weight as a conductance in a crossbar, apply the inputs as voltages, and the currents summing down each column are the dot products, "the ultimate form of a weight stationary dataflow". This chapter puts a real chip's numbers on it and runs the decoder layer through it.
+
+IBM's HERMES project chip is a research chip, not a product: <V of="imc.hermes.cores" fmt="int" /> cores in a <V of="imc.hermes.process" fmt="raw" /> process, each a <V of="imc.hermes.rows" fmt="int" /> × <V of="imc.hermes.cols" fmt="int" /> crossbar of phase-change memory, <V of="imc.hermes.devices_per_weight" fmt="int" /> devices per weight, with an ADC on every output line. One analogue matrix-vector multiply takes <V of="imc.hermes.lat_1p" fmt="time" /> in its fast read mode and <V of="imc.hermes.lat_4p" fmt="time" /> in its precise one, and the paper measures <V of="imc.hermes.tops_1p" fmt="ops" /> at <V of="imc.hermes.topsw_1p" fmt="opsw" /> with 8-bit inputs and outputs.
+
+The animation programs Llama 3.1 8B's weights into crossbars once, then runs one layer for one token. The layer's four weight matrices cut into <V of="imcLayer(llama3-8b,1).layer_tiles" fmt="int" /> tiles: <V of="imcLayer(llama3-8b,1).layer_chips" fmt="num" /> chips' worth for a single layer, and <V of="imcLayer(llama3-8b,1).chips" fmt="int" /> chips for the whole model. Each matrix stage is one analogue multiply on all its tiles at once, so the crossbars spend just <V of="imcLayer(llama3-8b,1).t_layer" fmt="time" /> on a layer and <V of="imcLayer(llama3-8b,1).t_token" fmt="time" /> on a whole token, and <V of="imcLayer(llama3-8b,1).e_token" fmt="num" /> J. No weight moves.
+
+That is the promise. The animation also shows the three problems.
+
+- **Capacity.** A weight occupies its crossbar cells for good, so the model needs one cell group per weight: <V of="imcLayer(llama3-70b,1).chips" fmt="int" /> chips for Llama 3.1 70B, where one H100 holds its 8-bit weights. Every family so far reuses a few bytes of fast memory for many weights; this one cannot.
+- **Attention.** The KV cache changes every token, so attention cannot be precomputed into conductances. It runs in digital logic beside the crossbars, as on any other chip, and the model does not time it.
+- **Precision.** An exact sum of 256 products of 8-bit inputs and 8-bit weights needs <V of="adcBits(8,8,256)" fmt="int" /> bits; the chip's path is <V of="imc.hermes.io_bits" fmt="int" />-bit in and out, and below that sit device noise and drift (a phase-change cell's conductance decays over time as $G(t) = G(t_0)(t/t_0)^{-\nu}$, which the chip corrects with a global rescaling). The 4-phase read mode buys accuracy with <V of="imcLayer(llama3-8b,4).t_layer" fmt="time" /> per layer instead of <V of="imcLayer(llama3-8b,1).t_layer" fmt="time" />.
+
+</Layer>
+
+<PartTable
+  ids="hermes"
+  fields="cores,rows,cols,weights,devices_per_weight,lat_1p,lat_4p,tops_1p,topsw_1p,tops_4p,topsw_4p,io_bits,die_mm2,process"
+/>
+
+## What is left out, and what it means
+
+The crossbar time is a floor on a floor. Each layer's 4,096-row inputs span 16 crossbars, whose partial sums must be added digitally, <V of="imcLayer(llama3-8b,1).psums" fmt="int" /> additions per token per layer for the 8B model; activations must cross between <V of="imcLayer(llama3-8b,1).chips" fmt="int" /> chips; and the paper demonstrates image and character-level networks, not language models of this size. What the chapter shows is the shape of the trade: in-memory compute removes weight movement, the cost that dominates every other family's decode, and pays for it in capacity and precision.
+
+**Computing with light** is the other analogue approach, with the same pattern of fast, low-energy linear algebra and costly conversions at the edges. It is covered separately, including where it does and does not pay: the [Compute in Transit results site](https://compute-in-transit-results.vercel.app) and the [Fourier Optics Inference decks](https://brendanjameslynskey.github.io/LLM_Hub_Fourier_Optics_Inference/).
+
+<Callout kind="illustrative">
+
+The crossbar is drawn 8 × 8 for 256 × 256, with shades for illustration. Times and energies are the paper's Table 1 figures per matrix-vector multiply (energy for all 64 cores divided equally), with one multiply per tile per stage and the four stages in sequence; attention, digital partial sums and chip-to-chip transfers are not counted. The chip is a research demonstrator, not a product; the model maps a decoder onto it to show scale, not a design anyone has built.
+
+</Callout>
+
+<Layer kind="maths">
+
+A crossbar with conductances $G_{ij}$ and row voltages $V_i$ gives column currents
+
+$$
+I_j = \sum_{i=1}^{N} G_{ij}\, V_i ,
+$$
+
+a dot product per column in one step. With $b_x$-bit inputs and $b_w$-bit weights, each product has $b_x + b_w$ bits and the sum of $N$ of them needs $b_x + b_w + \lceil \log_2 N \rceil$ bits to be exact: $8 + 8 + 8 = 24$ for $N = 256$. An ADC of $b$ bits keeps the top bits only, and its quantisation noise alone limits the signal-to-noise ratio to about $6.02\,b + 1.76$ dB, before device noise.
+
+A matrix of $k \times n$ weights on $r \times r$ crossbars takes $\lceil k/r \rceil \lceil n/r \rceil$ tiles, and $(\lceil k/r \rceil - 1)\, n$ digital additions per input vector to combine the partial sums.
+
+</Layer>
+
+<Layer kind="code">
+
+Cutting one layer's matrices into crossbar tiles, cut from [`src/lib/accel/model.ts`](https://github.com/BrendanJamesLynskey/ai-accelerators-explained/blob/main/src/lib/accel/model.ts):
+
+```ts
+const tk = Math.ceil(g.k / rows);
+const tn = Math.ceil(g.n / cols);
+const tiles = tk * tn;
+layerTiles += tiles;
+psums += (tk - 1) * g.n;
+```
+
+</Layer>
+
+<Callout kind="deeper">
+
+- AI Accelerators slide series: [Computing inside the memory array](https://brendanjameslynskey.github.io/AI_Accelerators_03_Dataflow_Meshes_Edge_In_Memory/#slide-08) ([all three decks](https://brendanjameslynskey.github.io/LLM_Hub_AI_Accelerators/)).
+- The crossbar principle and the dataflow taxonomy it belongs to: [Systolic Arrays Explained, chapter 8](https://systolic-arrays-explained.vercel.app/learn/08-other-ways); what 8 bits can and cannot represent: [Numerics Explained, chapter 1](https://numerics-explained.vercel.app/learn/01-bits-to-numbers) and [chapter 3 (accumulation error)](https://numerics-explained.vercel.app/learn/03-accumulation).
+- Le Gallo et al., [A 64-core mixed-signal in-memory compute chip based on phase-change memory for deep neural network inference](https://arxiv.org/abs/2212.02872) (Nature Electronics, 2023); Sze, Chen, Yang and Emer, [Efficient processing of deep neural networks](https://arxiv.org/abs/1703.09039), 2017, section on near-data processing.
+- Optical computing: [Compute in Transit](https://compute-in-transit-results.vercel.app) and the [Fourier Optics Inference series](https://brendanjameslynskey.github.io/LLM_Hub_Fourier_Optics_Inference/).
+
+</Callout>

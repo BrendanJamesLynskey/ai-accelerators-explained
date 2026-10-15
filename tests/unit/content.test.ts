@@ -3,7 +3,7 @@
  * names (whitespace-collapsed, because Prettier reformats MDX code blocks);
  * every CUDA block is labelled as not compiled here; every equation
  * compiles in KaTeX; internal links point at real pages; deck links point
- * at the owner's NVIDIA GPU and Google TPU decks with a slide anchor; links to
+ * at the owner's slide decks with a slide anchor (or at a series hub); links to
  * the companion sites name real chapters.
  */
 import { readFileSync, readdirSync } from "node:fs";
@@ -21,7 +21,13 @@ const squash = (s: string) => s.replace(/\s+/g, " ").trim();
 
 /** The companion sites' chapter slugs this site links to (checked against their sections.ts, 2026-10-15). */
 const SISTER_SLUGS: Record<string, string[]> = {
-  "gpu-kernels-explained": ["01-memory-hierarchy", "02-roofline", "07-gemm"],
+  "gpu-kernels-explained": [
+    "01-memory-hierarchy",
+    "02-roofline",
+    "07-gemm",
+    "09-softmax-and-flashattention",
+    "11-quantised-kernels",
+  ],
   "systolic-arrays-explained": [
     "01-why-systolic",
     "02-weight-stationary",
@@ -32,16 +38,29 @@ const SISTER_SLUGS: Record<string, string[]> = {
   ],
   "numerics-explained": [
     "04-formats-zoo",
+    "01-bits-to-numbers",
+    "03-accumulation",
     "05-quantisation-basics",
+    "08-awq-and-nf4",
     "10-hardware",
   ],
   "ai-racks-explained": [
     "01-chip-to-data-centre",
     "02-the-package",
+    "04-scale-up-nvlink",
+    "05-scale-out-network",
     "08-disaggregated-inference",
     "10-other-designs",
+    "11-cost",
   ],
-  "llm-inference-explained": ["03-roofline", "04-batching", "09-parallelism"],
+  "llm-inference-explained": [
+    "03-roofline",
+    "04-batching",
+    "07-speculative-decoding",
+    "08-quantisation",
+    "09-parallelism",
+    "10-serving-metrics",
+  ],
 };
 
 describe("chapter files", () => {
@@ -103,7 +122,11 @@ for (const f of FILES) {
       for (const m of src.matchAll(
         /https:\/\/brendanjameslynskey\.github\.io\/([A-Za-z0-9_]+)\/(#slide-\d\d)?/g,
       )) {
-        expect(m[1], m[0]).toMatch(/^(NVIDIA_GPU|Google_TPU)_\d\d_/);
+        // a hub is linked whole; a deck by its slide
+        if (m[1]!.startsWith("LLM_Hub_")) continue;
+        expect(m[1], m[0]).toMatch(
+          /^(NVIDIA_GPU|Google_TPU|FOptInf|AI_Accelerators)_\d\d_/,
+        );
         expect(m[2], m[0]).toBeDefined();
       }
     });

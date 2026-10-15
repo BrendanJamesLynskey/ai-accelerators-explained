@@ -11,7 +11,19 @@ import fx from "../fixtures/accel_fixtures.json";
 import {
   PART_ORDER,
   MODEL_ORDER,
+  adcBits,
   band,
+  choose,
+  dataflowSteps,
+  edgeBound,
+  edgeSteps,
+  imcLayer,
+  imcSteps,
+  layerOps,
+  layerTraffic,
+  meshLayer,
+  meshSteps,
+  tiers,
   batchSweep,
   chainSteps,
   decode,
@@ -227,5 +239,115 @@ describe("validation", () => {
     for (const [k, v] of Object.entries(fx.overhead))
       expect(impliedOverhead(k)).toEqual(v);
     expect(() => impliedOverhead("mlperf-h100")).toThrow();
+  });
+});
+
+describe("chapter 6: dataflow", () => {
+  type C = {
+    part: PartId;
+    model: ModelId;
+    fmt: Fmt;
+    tokens: number;
+    seqs: number;
+    ctx: number;
+    causal: boolean;
+  };
+  it("lists the same operations and moves the same bytes, fused or not", () => {
+    for (const m of MODEL_ORDER)
+      expect(layerOps(m)).toEqual((fx.layerOps as Record<string, unknown>)[m]);
+    const rs = rows<C & { fused: boolean }>(fx.layerTraffic);
+    expect(rs.length).toBeGreaterThan(10);
+    for (const r of rs)
+      expect(
+        layerTraffic(
+          r.part,
+          r.model,
+          r.fmt,
+          r.tokens,
+          r.seqs,
+          r.ctx,
+          r.causal,
+          r.fused,
+        ),
+      ).toEqual(r.out);
+    for (const r of rows<C>(fx.dataflowSteps))
+      expect(
+        dataflowSteps(
+          r.part,
+          r.model,
+          r.fmt,
+          r.tokens,
+          r.seqs,
+          r.ctx,
+          r.causal,
+        ),
+      ).toEqual(r.out);
+    for (const r of rows<{
+      part: PartId;
+      model: ModelId;
+      fmt: Fmt;
+      sockets: number;
+    }>(fx.tiers))
+      expect(tiers(r.part, r.model, r.fmt, r.sockets)).toEqual(r.out);
+  });
+});
+
+describe("chapter 7: a mesh of cores", () => {
+  it("splits the same layer over the same cards", () => {
+    type R = {
+      part: PartId;
+      model: ModelId;
+      fmt: Fmt;
+      batch: number;
+      ctx: number;
+      cards: number;
+    };
+    for (const r of rows<R>(fx.meshLayer))
+      expect(
+        meshLayer(r.part, r.model, r.fmt, r.batch, r.ctx, r.cards),
+      ).toEqual(r.out);
+    for (const r of rows<R>(fx.meshSteps))
+      expect(
+        meshSteps(r.part, r.model, r.fmt, r.batch, r.ctx, r.cards),
+      ).toEqual(r.out);
+  });
+});
+
+describe("chapter 8: edge devices", () => {
+  it("bounds the same decode step at every weight width", () => {
+    for (const r of rows<{
+      part: string;
+      model: ModelId;
+      bits: number;
+      ctx: number;
+    }>(fx.edgeBound))
+      expect(edgeBound(r.part, r.model, r.bits, r.ctx)).toEqual(r.out);
+    for (const r of rows<{ part: string; model: ModelId; ctx: number }>(
+      fx.edgeSteps,
+    ))
+      expect(edgeSteps(r.part, r.model, r.ctx)).toEqual(r.out);
+  });
+});
+
+describe("chapter 9: in-memory compute", () => {
+  it("maps the same layers onto the same crossbars", () => {
+    for (const r of rows<{ model: ModelId; phase: number }>(fx.imcLayer))
+      expect(imcLayer(r.model, r.phase)).toEqual(r.out);
+    for (const r of rows<{ model: ModelId; phase: number }>(fx.imcSteps))
+      expect(imcSteps(r.model, r.phase)).toEqual(r.out);
+    for (const r of rows<{ in: number; w: number; rows: number }>(fx.adcBits))
+      expect(adcBits(r.in, r.w, r.rows)).toEqual(r.out);
+  });
+});
+
+describe("chapter 10: choosing", () => {
+  it("runs every family on the same model", () => {
+    for (const r of rows<{
+      model: ModelId;
+      batch: number;
+      ctx: number;
+      prompt: number;
+    }>(fx.choose))
+      expect(choose(r.model, r.batch, r.ctx, r.prompt)).toEqual(r.out);
   });
 });

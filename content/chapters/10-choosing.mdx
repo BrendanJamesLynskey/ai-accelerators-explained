@@ -1,0 +1,84 @@
+<ChooseWidget>
+  <Eq
+    label="For every family the model takes the fewest chips that hold the model, and bounds a token by the larger of the bytes it must read over the bandwidth and its flops over the peak, plus the hops the layout forces"
+    tex="\begin{gathered} n = \left\lceil \frac{\htmlClass{hl-need}{W + K}}{\htmlClass{hl-cap}{C}} \right\rceil \\ t_{\text{token}} \ge \max\!\left(\frac{\htmlClass{hl-mem}{W + K}}{g\,\beta}, \frac{\htmlClass{hl-comp}{F}}{g\,P}\right) + h\,t_{\text{hop}} \end{gathered}"
+  />
+</ChooseWidget>
+
+<Layer kind="concept">
+
+Every chapter ran the same decoder model on one family. This one puts them side by side: Llama 3.1 70B, one user, a 1,024-token context and a 2,048-token prompt, on each family's representative part, using the fewest chips whose memory holds the model. The animation adds the families one at a time; pick the measure to compare.
+
+<ChooseTable model="llama3-70b" />
+
+In the table, \* marks crossbar time only: attention, digital partial sums and chip-to-chip transfers are not counted (chapter 9). Utilisation is the share of the chips' peak rate a batch-1 decode step uses at the bound.
+
+Read the table as bounds, not benchmarks. For the designs that read their weights from DRAM the bound is close to what systems achieve: the MLPerf check put eight H100s at <V of="val.mlperf-h100.ratio" fmt="pct" /> of the compute ceiling, and the SN40L paper's 8B figure is <V of="val.sn40l-8b-tps.ratio" fmt="pct" /> of its bandwidth bound. For the SRAM designs it is not: the published per-user speeds of the wafer and the LPU chain are <V of="band.latency.min" fmt="pct" /> to <V of="val.groq-70b-tps.ratio" fmt="pct" /> of their bounds, because once the weights are in SRAM, bandwidth stops being the limit and per-layer latency, which the vendors do not break down, takes over. The full validation is below and on [the About page](/about#validation).
+
+</Layer>
+
+## Where each family wins and loses
+
+**GPUs** hold the most model per chip (<V of="part.h100.off_bytes" fmt="bytes" /> of HBM per H100: the whole 70B model in FP8 on one), run anything, and decode for one user at the speed of HBM: <V of="choose(llama3-70b,1,1024,2048).0.tok_s_user" fmt="num" /> tokens per second at the bound, using <V of="choose(llama3-70b,1,1024,2048).0.util" fmt="pct" /> of the chip's arithmetic. They win by batching: the same step serves hundreds of users ([chapter 2](/learn/02-gpus-the-baseline)). Their energy per token at batch 1, <V of="choose(llama3-70b,1,1024,2048).0.j_per_token" fmt="num" /> J at the TDP, is mostly an idle chip waiting on memory.
+
+**Systolic designs** make the same trade with a compiler instead of warps: one TPU7x reads its HBM at <V of="part.tpu-7x.off_bw" fmt="rate" />, so its bound is <V of="choose(llama3-70b,1,1024,2048).1.tok_s_user" fmt="num" /> tokens per second, and like the GPU it needs a large batch to fill its arrays ([chapter 3](/learn/03-systolic-designs)).
+
+**Wafer-scale** and **compiler-scheduled** chips put the weights in SRAM and buy per-user speed with silicon: <V of="choose(llama3-70b,1,1024,2048).2.chips" fmt="int" /> wafers or <V of="choose(llama3-70b,1,1024,2048).3.chips" fmt="int" /> GroqChips to hold a model one H100 holds. Their published speeds, <V of="pub.cerebras-70b-tps" fmt="int" /> and over <V of="pub.groq-70b-tps" fmt="int" /> tokens per second for one user, are the fastest in this site's sources. The LPU's static schedule also makes every token take the same time.
+
+**Reconfigurable dataflow** keeps HBM but fuses a layer into one pipeline and adds a DDR tier for many resident models: <V of="choose(llama3-70b,1,1024,2048).4.chips" fmt="int" /> SN40L sockets for the 70B model in BF16, and the closest measured speed to its bound of any family here.
+
+**Meshes of small cores** trade the fastest memory for an open, uniform design and Ethernet built into the chip: <V of="choose(llama3-70b,1,1024,2048).5.chips" fmt="int" /> Blackhole cards, each bounded by GDDR6 at <V of="part.blackhole.off_bw" fmt="rate" />.
+
+**Edge NPUs and FPGAs** run on a few watts and the device's own memory: the 70B model needs <V of="choose(llama3-70b,1,1024,2048).6.chips" fmt="int" /> M4-class devices even at 8 bits, while the 8B model runs on one at <V of="choose(llama3-8b,1,1024,2048).6.tok_s_user" fmt="num" /> tokens per second at the bound. FPGAs win on fixed, predictable latency and exactly-sized numbers, not on large models.
+
+**In-memory compute** removes weight movement entirely and pays in capacity and precision: <V of="choose(llama3-70b,1,1024,2048).7.chips" fmt="int" /> research chips for the 70B model. It is a research direction, not a product family, in the sources used.
+
+<ValidationTable />
+
+## What the families are converging on
+
+The designs started far apart and are borrowing from each other.
+
+- **Fast memory beside capacious memory.** The SN40L and SN50 keep three tiers (SRAM, HBM, DDR); NVIDIA's announced Groq 3 LPX racks put SRAM-only LPUs beside its GPUs, "jointly computing every layer of the AI model for every output token" ([chapter 5](/learn/05-compiler-scheduled)); Cerebras's announced CS-4 raises each wafer's SRAM bandwidth to <V of="part.wse-3t.sram_bw" fmt="rate" /> from <V of="part.wse-3.sram_bw" fmt="rate" />.
+- **Narrower numbers.** Every current part here quotes an 8-bit rate or narrower: FP8 on the H100, B200, TPU7x and Trainium2, block FP8 on Blackhole, INT4 on the Hailo-10H. Each halving of the weight width halves the bytes a decode step must read ([chapter 8](/learn/08-fpgas-and-npus)).
+- **The compiler owns the data movement.** XLA on the TPU, whole-layer fusion on the RDU, the static schedule on the LPU, per-core data-movement programs on Tenstorrent, scheduled DMA on AMD's AI Engines: more of what a cache and a warp scheduler decide at run time is now decided ahead of time.
+- **The interconnect moves onto the chip.** NVLink, the TPU's inter-chip links, NeuronLink and Blackhole's Ethernet ports all put scale-up on the accelerator itself ([AI Racks Explained, chapter 4](https://ai-racks-explained.vercel.app/learn/04-scale-up-nvlink)).
+
+<Callout kind="illustrative">
+
+Each family is one or two representative parts, not the best of its kind; formats differ by what each vendor publishes (FP8 where given, BF16 for the wafer and the RDU, INT8 for the LPU and the NPU). Energy is TDP times the bound's time, shown only where a power figure is given; for SRAM designs, whose real speed is far below their bound, it is understated by the same factor. The CS-3 and B200 power figures are system shares, not chip TDPs ([the specifications](/specs)). Bounds assume full stated bandwidth and dense peak rates; Cerebras's rate is its sparse figure, so its compute term is a floor.
+
+</Callout>
+
+<Layer kind="maths">
+
+For each family the model takes the fewest chips $n = \lceil (W + K)/C \rceil$ whose memory $C$ holds the weights $W$ and the KV cache $K$, then bounds one decode step by
+
+$$
+t_{\text{token}} \ge \max\!\left(\frac{W_{\text{read}} + K}{g\,\beta}, \frac{F}{g\,P}\right) + h\, t_{\text{hop}},
+$$
+
+where $g$ chips share each step (all $n$ for a tensor layout, one stage's group for a pipeline), $\beta$ and $P$ are one chip's memory bandwidth and peak rate, and $h$ hops of latency $t_{\text{hop}}$ are added where the vendor gives the latency. Decode utilisation is $F / (t_{\text{token}}\, n\, P)$. For the crossbar chip the step is instead $L$ layers of four analogue multiplies, $4L\, t_{\text{MVM}}$.
+
+</Layer>
+
+<Layer kind="code">
+
+The row for a family whose part reads its weights, cut from [`src/lib/accel/model.ts`](https://github.com/BrendanJamesLynskey/ai-accelerators-explained/blob/main/src/lib/accel/model.ts):
+
+```ts
+const d = decode(p, mid, fmt, batch, ctx);
+const pf = prefill(p, mid, fmt, prompt);
+const pk = peak(p, fmt);
+```
+
+</Layer>
+
+<Callout kind="deeper">
+
+- AI Accelerators slide series: [Every family on the same model](https://brendanjameslynskey.github.io/AI_Accelerators_01_The_Design_Space/#slide-07) ([all three decks](https://brendanjameslynskey.github.io/LLM_Hub_AI_Accelerators/)).
+- What a whole system costs per token, from chip to rack: [AI Racks Explained, chapter 11](https://ai-racks-explained.vercel.app/learn/11-cost) and the other rack designs in [chapter 10](https://ai-racks-explained.vercel.app/learn/10-other-designs); batching and serving metrics: [Serving, chapter 4](https://llm-inference-explained.vercel.app/learn/04-batching) and [chapter 10](https://llm-inference-explained.vercel.app/learn/10-serving-metrics); the formats behind "narrower numbers": [Numerics Explained, chapter 4](https://numerics-explained.vercel.app/learn/04-formats-zoo); inside one matrix engine: [Systolic Arrays Explained, chapter 7 (the TPU)](https://systolic-arrays-explained.vercel.app/learn/07-the-tpu); inside one GPU: [GPU Kernels Explained, chapter 7](https://gpu-kernels-explained.vercel.app/learn/07-gemm).
+- Slide series: [NVIDIA GPUs](https://brendanjameslynskey.github.io/LLM_Hub_NVIDIA_GPUs/) and [Google TPUs](https://brendanjameslynskey.github.io/LLM_Hub_Google_TPUs/), and the TPU vs GPU deck's [convergence in 2026](https://brendanjameslynskey.github.io/Google_TPU_12_TPU_vs_GPU/#slide-11).
+- Every figure, its source and its access date: [the specifications](/specs); the model's limits and validation: [about](/about).
+
+</Callout>

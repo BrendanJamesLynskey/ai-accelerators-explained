@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { FamilyBars } from "@/components/viz/FamilyBars";
-import { COMING, SECTIONS } from "@/lib/mdx/sections";
+import { SECTIONS } from "@/lib/mdx/sections";
 import { formatValue, lookup, type Fmt } from "@/lib/accel/values";
 import {
   KERNELS_URL,
@@ -82,17 +82,6 @@ export default function HomePage(): JSX.Element {
           </Link>
         ))}
       </nav>
-      <div className="mt-8 rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
-        <h2 className="text-sm font-semibold">Coming next</h2>
-        <ul
-          className="mt-2 list-disc pl-5 text-sm text-neutral-600 dark:text-neutral-400"
-          data-coming
-        >
-          {COMING.map((c) => (
-            <li key={c}>{c}</li>
-          ))}
-        </ul>
-      </div>
       <p className="mt-6 text-sm text-neutral-600 dark:text-neutral-400">
         Every figure the model uses, with its source and access date:{" "}
         <Link href="/specs" className={LINK}>

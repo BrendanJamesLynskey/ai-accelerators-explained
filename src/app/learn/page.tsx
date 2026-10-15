@@ -2,11 +2,11 @@
  * /learn — index of chapters.
  *
  * Server Component, statically rendered. Same layout as the companion
- * sites' /learn, plus the chapters still to come.
+ * sites' /learn.
  */
 import Link from "next/link";
 
-import { COMING, SECTIONS } from "@/lib/mdx/sections";
+import { SECTIONS } from "@/lib/mdx/sections";
 import { GOOGLE_TPU_HUB, KERNELS_URL, NVIDIA_GPU_HUB } from "@/lib/site";
 
 export const metadata = {
@@ -67,15 +67,6 @@ export default function LearnIndex(): JSX.Element {
           </li>
         ))}
       </ol>
-      <h2 className="mt-10 text-sm font-semibold">Coming next</h2>
-      <ul
-        className="mt-2 list-disc pl-5 text-sm text-neutral-600 dark:text-neutral-400"
-        data-coming
-      >
-        {COMING.map((c) => (
-          <li key={c}>{c}</li>
-        ))}
-      </ul>
     </main>
   );
 }

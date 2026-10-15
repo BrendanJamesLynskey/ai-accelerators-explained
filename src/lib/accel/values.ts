@@ -25,11 +25,20 @@ import {
 
 import {
   ILLUSTRATIVE,
+  IMC_RECORDS,
   MODEL_ORDER,
+  OTHER_PART_RECORDS,
   PART_ORDER,
   PUBLISHED,
+  adcBits,
   band,
+  choose,
   decode,
+  edgeBound,
+  imcLayer,
+  layerTraffic,
+  meshLayer,
+  tiers,
   impliedOverhead,
   layerMxu,
   lpuCapacity,
@@ -57,9 +66,11 @@ export type Fmt =
   | "pct"
   | "int"
   | "num"
+  | "ops"
+  | "opsw"
   | "raw";
 
-type Arg = string | number;
+type Arg = string | number | boolean;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Fn = (...a: any[]) => unknown;
 
@@ -76,6 +87,13 @@ const CALLS: Record<string, Fn> = {
   waferYield,
   wafersNeeded,
   lpuCapacity,
+  layerTraffic,
+  tiers,
+  meshLayer,
+  edgeBound,
+  imcLayer,
+  adcBits,
+  choose,
 };
 
 function build(): Record<string, unknown> {
@@ -94,12 +112,31 @@ function build(): Record<string, unknown> {
   for (const [k, f] of Object.entries(PUBLISHED)) pub[k] = f.v;
   t.pub = pub;
   const o: Record<string, unknown> = {};
-  for (const k of ["groq-70b-tps", "cerebras-70b-tps", "cerebras-8b-tps"])
+  for (const k of [
+    "groq-70b-tps",
+    "cerebras-70b-tps",
+    "cerebras-8b-tps",
+    "sn40l-8b-tps",
+  ])
     o[k] = impliedOverhead(k);
   t.overhead = o;
   const ill: Record<string, unknown> = {};
   for (const [k, f] of Object.entries(ILLUSTRATIVE)) ill[k] = f.v;
   t.ill = ill;
+  const other: Record<string, unknown> = {};
+  for (const r of OTHER_PART_RECORDS) {
+    const f: Record<string, unknown> = { avail: r.avail.v };
+    for (const [k, x] of Object.entries(r.fields)) f[k] = x.v;
+    other[r.id] = f;
+  }
+  t.other = other;
+  const imc: Record<string, unknown> = {};
+  for (const [id, r] of Object.entries(IMC_RECORDS)) {
+    const f: Record<string, unknown> = { avail: r.avail.v };
+    for (const [k, x] of Object.entries(r.fields)) f[k] = x.v;
+    imc[id] = f;
+  }
+  t.imc = imc;
   return t;
 }
 
@@ -125,7 +162,15 @@ export function lookup(path: string): number | string {
     const args: Arg[] = m[2]!
       .split(",")
       .filter((x) => x !== "")
-      .map((x) => (/^-?[\d.]+(e[+-]?\d+)?$/.test(x) ? Number(x) : x));
+      .map((x) =>
+        x === "true"
+          ? true
+          : x === "false"
+            ? false
+            : /^-?[\d.]+(e[+-]?\d+)?$/.test(x)
+              ? Number(x)
+              : x,
+      );
     const res = fn(...args);
     cur = m[3] ? walk(res, m[3].split("."), path) : res;
   } else {
@@ -158,6 +203,10 @@ export function formatValue(v: number | string, fmt: Fmt): string {
       return pct(v, v < 0.01 ? 2 : v < 0.1 ? 1 : 0);
     case "int":
       return fmtInt(v);
+    case "ops":
+      return fmtFlops(v).replace("FLOP/s", "OP/s");
+    case "opsw":
+      return `${trim(v / 1e12)} TOPS/W`;
     case "raw":
       return String(v);
     default:

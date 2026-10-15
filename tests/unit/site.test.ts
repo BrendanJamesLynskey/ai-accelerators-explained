@@ -3,12 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { illustrative } from "@/lib/accel/model";
 import { fmtBytes, fmtFlops, fmtInt, fmtTime, pct, trim } from "@/lib/format";
-import {
-  COMING,
-  SECTIONS,
-  getSectionMeta,
-  isValidSlug,
-} from "@/lib/mdx/sections";
+import { SECTIONS, getSectionMeta, isValidSlug } from "@/lib/mdx/sections";
 import { PLACEMENT_COLOUR, TERM_COLOUR } from "@/lib/viz/palette";
 import { SITE_NAME, SITE_TITLE, deck, repoFile } from "@/lib/site";
 
@@ -27,10 +22,10 @@ describe("site", () => {
       "https://github.com/BrendanJamesLynskey/ai-accelerators-explained/blob/main/results.md",
     );
   });
-  it("lists five chapters and five to come", () => {
-    expect(SECTIONS).toHaveLength(5);
-    expect(COMING).toHaveLength(5);
+  it("lists ten chapters", () => {
+    expect(SECTIONS).toHaveLength(10);
     expect(isValidSlug("04-wafer-scale")).toBe(true);
+    expect(isValidSlug("10-choosing")).toBe(true);
     expect(isValidSlug("06-dataflow")).toBe(false);
     expect(getSectionMeta("04-wafer-scale").title).toBe("Wafer-scale");
   });

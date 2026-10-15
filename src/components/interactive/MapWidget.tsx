@@ -6,7 +6,7 @@
  * who decides when data moves (top to bottom, from hardware at run time to
  * the compiler ahead of time), with each family's grain drawn as its marker
  * (one big engine, a few cores, a carpet of tiny ones). The animation steps
- * through the families; for the four with parts in chapters 2-5 a strip
+ * through the families; for the seven with a modelled part a strip
  * underneath counts the chips the running model's weights need. Every frame
  * is a state of `mapSteps` (checked against the Python reference).
  */
@@ -101,6 +101,20 @@ function Marker({
       {cells}
     </g>
   );
+}
+
+/**
+ * A label's centre, kept inside its family's column: two families that share
+ * a cell sit either side of its centre, and on a phone the larger type would
+ * otherwise push a label into the next column (approximate width: 0.6 em a
+ * character).
+ */
+function labelX(x: number, col: number, text: string, size: number): number {
+  const half = (text.length * 0.6 * size) / 2;
+  const lo = LEFT + col * COLW + 2 + half;
+  const hi = LEFT + (col + 1) * COLW - 2 - half;
+  if (lo > hi) return LEFT + (col + 0.5) * COLW;
+  return Math.min(hi, Math.max(lo, x));
 }
 
 /** Where each family sits: its cell, offset when two share one. */
@@ -211,7 +225,12 @@ export default function MapWidget({
               muted={i > k}
             />
             <text
-              x={pos[i]!.x}
+              x={labelX(
+                pos[i]!.x,
+                f.placement,
+                SHORT_NAME[f.id] ?? f.name,
+                fs(9.5),
+              )}
               y={pos[i]!.above ? pos[i]!.y - 19 : pos[i]!.y + 27}
               textAnchor="middle"
               style={{ fontSize: fs(9.5) }}
@@ -257,7 +276,7 @@ export default function MapWidget({
     <AnimationPanel
       testId="map-widget"
       title="The families of AI chips, on two axes"
-      summary="Each family placed by where its weights live and who schedules the data; for the families of chapters 2 to 5, how many chips hold the running model."
+      summary="Each family placed by where its weights live and who schedules the data; for every family with a modelled part, how many chips hold the running model."
       stepper={st}
       stepLabel="family"
       caption={mapCaption(s, steps.length, modelName, partName)}

@@ -202,6 +202,37 @@ SOURCES: dict[str, dict[str, str]] = {
         "https://arxiv.org/abs/2212.02872",
         "paper",
     ),
+    # chapters 6-10
+    "sambanova-sn50-ds": _s(
+        "SambaNova SN50 RDU datasheet (PDF; three-tier memory, 'DDR5 Up to 2 TB')",
+        "https://sambanova.ai/hubfs/SambaNova%20SN50%20RDU.pdf",
+        "vendor datasheet",
+    ),
+    "graphcore-home": _s(
+        "Graphcore home page (lists no IPU products; graphcore.ai/products returns 404 on the access date)",
+        "https://www.graphcore.ai/",
+        "vendor home page",
+    ),
+    "apple-mbp-m4": _s(
+        "Apple Newsroom, 'New MacBook Pro features M4 family of chips and Apple Intelligence' (2024-10-30; M4: up to 32GB unified memory, 120GB/s)",
+        "https://www.apple.com/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/",
+        "vendor press release",
+    ),
+    "amd-v70": _s(
+        "AMD Alveo V70 accelerator card page, Specifications (XDNA, Versal AI Core, AIE-ML tiles)",
+        "https://www.amd.com/en/products/accelerators/alveo/v70.html",
+        "vendor product page",
+    ),
+    "amd-v70-part": _s(
+        "AMD Alveo V70 part page a-v70-p16g-pq-g ('Discontinued: This product has been discontinued and is no longer offered for sale')",
+        "https://www.amd.com/en/products/accelerators/alveo/v70/a-v70-p16g-pq-g.html",
+        "vendor product page",
+    ),
+    "hailo-10h": _s(
+        "Hailo-10H M.2 AI acceleration module page (40|20 TOPS INT4|INT8, 2.5W typical, 4|8GB LPDDR4/4X)",
+        "https://hailo.ai/products/ai-accelerators/hailo-10h-m-2-ai-acceleration-module/",
+        "vendor product page",
+    ),
 }
 
 
@@ -471,7 +502,155 @@ PARTS: dict[str, dict[str, Any]] = {
     },
 }
 
-PART_ORDER = ("h100", "b200", "tpu-v6e", "tpu-7x", "trn2", "wse-3", "wse-3t", "groqchip", "groq3")
+# Chapters 6-8: the dataflow, mesh and edge parts the model runs.
+PARTS.update({
+    "sn40l": {
+        "id": "sn40l", "name": "SambaNova SN40L RDU", "family": "dataflow", "layout": "tensor",
+        "avail": _f("product", "spec", "sambanova-rdu", "the chip page lists the SN40 beside the SN50: 'the SN40 is well-suited for existing inference deployments'"),
+        "fields": {
+            "peak_bf16": _f(638e12, "spec", "sn40l", "Table II: Compute Capability 638 BFLOAT16 (BF16) TFLOPs"),
+            "peak_fp8": _f(None, "undisclosed", "sn40l", "no FP8 figure in the paper"),
+            "peak_int8": _f(None, "undisclosed", "sn40l", "no INT8 figure in the paper"),
+            "sram_bytes": _f(520e6, "spec", "sn40l", "Table II: SRAM Capacity 520 MB (the text says 520 MiB)"),
+            "sram_bw": _f(None, "undisclosed", "sn40l", "the PMUs 'in aggregate provide hundreds of TBps of on-chip memory bandwidth'; no figure"),
+            "off_bytes": _f(64e9, "spec", "sn40l", "Table II: HBM Capacity 64 GB"),
+            "off_bw": _f(1.8e12, "spec", "sn40l", "Table II: HBM Bandwidth 1.8 TB/s"),
+            "ddr_bytes": _f(1.5e12, "spec", "sn40l", "Table II: DDR Capacity 1.5 TB (the chip page now lists 'Up to 512 GB' DDR5 for the SN40)"),
+            "ddr_bw": _f(200e9, "spec", "sn40l", "Table II: DDR Bandwidth 200 GB/s"),
+            "c2c_bidir": _f(None, "undisclosed", "sn40l", "socket-to-socket bandwidth not given in the sources used"),
+            "hop_s": _f(None, "undisclosed", "sn40l", "socket-to-socket latency not given in the sources used"),
+            "power_w": _f(None, "undisclosed", "sambanova-rdu", "chip power not given in the sources used"),
+            "units": _f(1040, "spec", "sn40l", "Table II: PCU Count 1040 (and 1040 PMUs)"),
+            "process": _f("5 nm", "spec", "sn40l", "Table II: 5nm, two dies per socket"),
+        },
+    },
+    "gc2": {
+        "id": "gc2", "name": "Graphcore GC2 IPU (first generation)", "family": "dataflow", "layout": "pipeline",
+        "avail": _f("retired", "spec", "graphcore-home", "Graphcore's site lists no IPU products on the access date (its products page returns 404); the GC2 is the IPU the 2019 paper measured"),
+        "fields": {
+            "peak_bf16": _f(None, "undisclosed", "ipu-dissect", "no BF16 figure"),
+            "peak_fp16": _f(124.5e12, "spec", "ipu-dissect", "'124.5 TFlops/s in mixed precision per chip' (FP16 products, FP32 accumulation)"),
+            "peak_fp8": _f(None, "undisclosed", "ipu-dissect", "no FP8"),
+            "peak_int8": _f(None, "undisclosed", "ipu-dissect", "no INT8 figure"),
+            "sram_bytes": _f(304 * 2**20, "spec", "ipu-dissect", "'Each tile contains 256 KiB of memory, totaling 304 MiB per device'"),
+            "sram_bw": _f(45e12, "spec", "ipu-dissect", "'much higher bandwidth (45 TB/s, aggregate)'"),
+            "off_bytes": _f(0, "spec", "ipu-dissect", "'the IPU offers no memory other than the distributed memories local to each tile'"),
+            "off_bw": _f(0, "spec", "ipu-dissect", "no memory on the device besides the tiles' SRAM"),
+            "c2c_bidir": _f(None, "undisclosed", "ipu-dissect", "not used here"),
+            "hop_s": _f(None, "undisclosed", "ipu-dissect", "IPU-to-IPU latency not used here"),
+            "power_w": _f(150, "reported", "ipu-dissect", "the paper's 'nominal power figures (250 W for the GPU, 150 W for the IPU)'"),
+            "units": _f(1216, "spec", "ipu-dissect", "'Each IPU contains 1,216 processing elements called tiles'"),
+            "tile_sram": _f(256 * 1024, "spec", "ipu-dissect", "256 KiB per tile"),
+        },
+    },
+    "blackhole": {
+        "id": "blackhole", "name": "Tenstorrent Blackhole (p150a card)", "family": "mesh", "layout": "tensor",
+        "avail": _f("product", "spec", "tt-hardware", "p150a 'In stock: Ships in 2 weeks'"),
+        "fields": {
+            "peak_bf16": _f(None, "undisclosed", "tt-hardware", "no BF16 figure on the page"),
+            "peak_fp8": _f(664e12, "spec", "tt-hardware", "TeraFLOPS (BLOCKFP8) 664 (a block floating-point format; dense or sparse not stated)"),
+            "peak_int8": _f(None, "undisclosed", "tt-hardware", "no INT8 figure"),
+            "sram_bytes": _f(180e6, "spec", "tt-hardware", "SRAM 180MB"),
+            "sram_bw": _f(None, "undisclosed", "tt-hardware", "not given"),
+            "off_bytes": _f(32e9, "spec", "tt-hardware", "Memory 32 GB GDDR6"),
+            "off_bw": _f(512e9, "spec", "tt-hardware", "Memory Bandwidth 512 GB/sec"),
+            "c2c_bidir": _f(800e9, "derived", "tt-hardware", "4x QSFP-DD 800G ports: 3.2 Tb/s = 400 GB/s each way, 800 GB/s both ways"),
+            "hop_s": _f(None, "undisclosed", "tt-hardware", "Ethernet latency not given"),
+            "power_w": _f(300, "spec", "tt-hardware", "TBP (Total Board Power) 300W: the card"),
+            "units": _f(120, "spec", "tt-hardware", "Tensix Cores 120"),
+            "riscv": _f(16, "spec", "tt-hardware", "'Big RISC-V' Cores 16"),
+            "clock_hz": _f(1.35e9, "spec", "tt-hardware", "AI Clock 1.35 GHz"),
+        },
+    },
+    "m4": {
+        "id": "m4", "name": "Apple M4 (Neural Engine)", "family": "fpga-npu", "layout": "tensor",
+        "avail": _f("product", "spec", "apple-mbp-m4", "MacBook Pro with M4 (October 2024)"),
+        "fields": {
+            "peak_bf16": _f(None, "undisclosed", "apple-m4", "no floating-point figure"),
+            "peak_fp8": _f(None, "undisclosed", "apple-m4", "no FP8 figure"),
+            "peak_int8": _f(38e12, "spec", "apple-m4", "'38 trillion operations per second'; Apple does not state the format, so the model treats it as the 8-bit rate"),
+            "sram_bytes": _f(None, "undisclosed", "apple-m4", "on-chip memory not given"),
+            "sram_bw": _f(None, "undisclosed", "apple-m4", "not given"),
+            "off_bytes": _f(32e9, "spec", "apple-mbp-m4", "'starts with 16GB of faster unified memory with support for up to 32GB' (the largest M4 configuration is used)"),
+            "off_bw": _f(120e9, "spec", "apple-mbp-m4", "'120GB/s of memory bandwidth' (unified memory, shared by the CPU, GPU and Neural Engine)"),
+            "c2c_bidir": _f(None, "undisclosed", "apple-m4", "a single device"),
+            "hop_s": _f(None, "undisclosed", "apple-m4", "a single device"),
+            "power_w": _f(None, "undisclosed", "apple-m4", "Neural Engine power not given"),
+            "units": _f(16, "spec", "apple-m4", "a 16-core Neural Engine"),
+        },
+    },
+})
+
+PART_ORDER = ("h100", "b200", "tpu-v6e", "tpu-7x", "trn2", "wse-3", "wse-3t", "groqchip", "groq3", "sn40l", "gc2", "blackhole", "m4")
+
+# Parts quoted on the site but not run through placement or decode: a
+# capacity or bandwidth the model needs is not disclosed, or (SN50) the
+# memory bandwidth is not. Same field structure as PARTS.
+OTHER_PARTS: dict[str, dict[str, Any]] = {
+    "sn50": {
+        "id": "sn50", "name": "SambaNova SN50 RDU", "family": "dataflow", "also": ["sambanova-sn50-ds"],
+        "avail": _f("announced", "spec", "sambanova-rdu", "the chip page lists specifications and a datasheet; it does not state that the SN50 is shipping"),
+        "fields": {
+            "peak_bf16": _f(1600e12, "spec", "sambanova-rdu", "Compute 1600 TFLOPS at BF16"),
+            "peak_fp8": _f(3200e12, "spec", "sambanova-rdu", "3200 TFLOPS at FP8"),
+            "sram_bytes": _f(432e6, "spec", "sambanova-rdu", "On-chip SRAM 432 MB"),
+            "off_bytes": _f(64e9, "spec", "sambanova-rdu", "HBM2E 64 GB"),
+            "off_bw": _f(None, "undisclosed", "sambanova-rdu", "HBM bandwidth not given"),
+            "ddr_bytes": _f(512e9, "spec", "sambanova-rdu", "DDR5 Up to 512 GB (the datasheet says 'Up to 2 TB')"),
+            "scale_up": _f(256, "spec", "sambanova-rdu", "Scale-up: Up to 256 RDUs"),
+        },
+    },
+    "v70": {
+        "id": "v70", "name": "AMD Alveo V70 (Versal AI Core)", "family": "fpga-npu",
+        "avail": _f("retired", "spec", "amd-v70-part", "'This product has been discontinued and is no longer offered for sale'"),
+        "fields": {
+            "peak_int8": _f(404e12, "spec", "amd-v70", "TOPS (INT8) 404"),
+            "peak_bf16": _f(202e12, "spec", "amd-v70", "TOPS (BF16) 202"),
+            "sram_bw": _f(47.6e12, "spec", "amd-v70", "47.6 TB/s for internal memory"),
+            "off_bytes": _f(None, "undisclosed", "amd-v70", "DDR capacity not given on the page"),
+            "off_bw": _f(76.8e9, "spec", "amd-v70", "76.8 GB/s for external DDR"),
+            "power_w": _f(75, "spec", "amd-v70", "Power (TDP) 75W"),
+        },
+    },
+    "hailo10h": {
+        "id": "hailo10h", "name": "Hailo-10H (M.2 module)", "family": "fpga-npu",
+        "avail": _f("product", "spec", "hailo-10h", "M.2 module with a 'How to Buy' section"),
+        "fields": {
+            "peak_int4": _f(40e12, "spec", "hailo-10h", "40|20 TOPS (INT4|8)"),
+            "peak_int8": _f(20e12, "spec", "hailo-10h", "40|20 TOPS (INT4|8)"),
+            "off_bytes": _f(8e9, "spec", "hailo-10h", "ON-Module DDR 4|8GB LPDDR4/4X (the larger is used)"),
+            "off_bw": _f(None, "undisclosed", "hailo-10h", "memory bandwidth not given"),
+            "power_w": _f(2.5, "spec", "hailo-10h", "Consumes 2.5W (typical)"),
+        },
+    },
+}
+OTHER_ORDER = ("sn50", "v70", "hailo10h")
+
+# Chapter 9: one analogue in-memory compute chip (a research chip, not a product).
+IMC: dict[str, dict[str, Any]] = {
+    "hermes": {
+        "id": "hermes", "name": "IBM HERMES project chip (PCM, research)", "family": "imc",
+        "avail": _f("research", "spec", "pcm-imc", "a research chip described in a paper (Le Gallo et al.); not a product"),
+        "fields": {
+            "cores": _f(64, "spec", "pcm-imc", "'64 256x256 AIMC cores'"),
+            "rows": _f(256, "spec", "pcm-imc", "each core 'a PCM crossbar array capable of storing a 256 x 256 weight matrix'"),
+            "cols": _f(256, "spec", "pcm-imc", "256 x 256"),
+            "weights": _f(4194304, "spec", "pcm-imc", "'up to 4,194,304 weights can be stored on-chip'"),
+            "devices_per_weight": _f(4, "spec", "pcm-imc", "'using only 4 PCM devices to encode a weight'"),
+            "lat_1p": _f(133e-9, "spec", "pcm-imc", "Table 1: MVM latency 133 ns, 1-phase read (low precision)"),
+            "lat_4p": _f(520e-9, "spec", "pcm-imc", "Table 1: MVM latency 520 ns, 4-phase read (high precision)"),
+            "e_1p": _f(0.86e-6, "spec", "pcm-imc", "Table 1: energy 0.86 uJ, 1-phase, all 64 cores at 100% utilisation"),
+            "e_4p": _f(3.38e-6, "spec", "pcm-imc", "Table 1: energy 3.38 uJ, 4-phase, all 64 cores"),
+            "tops_1p": _f(63.1e12, "spec", "pcm-imc", "peak MVM throughput 63.1 TOPS (1-phase)"),
+            "tops_4p": _f(16.1e12, "spec", "pcm-imc", "16.1 TOPS (4-phase)"),
+            "topsw_1p": _f(9.76e12, "spec", "pcm-imc", "9.76 TOPS/W (1-phase)"),
+            "topsw_4p": _f(2.48e12, "spec", "pcm-imc", "2.48 TOPS/W (4-phase)"),
+            "io_bits": _f(8, "spec", "pcm-imc", "'8-bit input/output matrix-vector multiplications'"),
+            "die_mm2": _f(144, "derived", "pcm-imc", "the chip is 12 mm x 12 mm"),
+            "process": _f("14 nm", "spec", "pcm-imc", "'14-nm CMOS' with back-end-integrated PCM"),
+        },
+    },
+}
 
 # ---------------------------------------------------------------------------
 # The running workload: Llama decoder models (layer shapes from the papers).
@@ -512,6 +691,9 @@ PUBLISHED: dict[str, dict[str, Any]] = {
     "cerebras-70b-tps": _f(450, "spec", "cerebras-inference", "'450 tokens per second for Llama3.1 70B' (16-bit weights)"),
     "groq-70b-chips": _f(576, "reported", "nextplatform-groq", "'Groq linked together 576 of its GroqChips' for Llama 2 70B, INT8"),
     "groq-70b-tps": _f(300, "reported", "nextplatform-groq", "'the Groq setup with 576 chips was able to push above 300 tokens per second'"),
+    "sn40l-sockets": _f(16, "spec", "sn40l", "Table IV: 'measured on 16 SN40L sockets'"),
+    "sn40l-8b-tps": _f(1042, "spec", "sn40l", "Table IV: Llama 3.1 Instruct 8B, 1042 output tokens/second/user (BF16 weights, 8K sequence length)"),
+    "sn40l-70b-tps": _f(457, "spec", "sn40l", "Table IV: Llama 3.1 Instruct 70B, 457 output tokens/second/user ('Speculative decoding is employed on 70B and 405B models')"),
 }
 
 # Quoted claims: shown on the site, attributed, never used as model inputs.
@@ -535,6 +717,14 @@ CLAIMS: dict[str, dict[str, str]] = {
     "cerebras-sparse-10x": {
         "text": "Cerebras cores reach 'as high as 10x more utilization than GPUs on unstructured, sparse compute'",
         "src": "cerebras-wp",
+    },
+    "sn40l-85": {
+        "text": "SN40L: 'Dataflow enables overlapping weight loads with computation to achieve over 85% of HBM bandwidth' (the SN40L paper; it says GPU implementations 'rarely exceed 50%')",
+        "src": "sn40l",
+    },
+    "m4-npu": {
+        "text": "M4's Neural Engine is 'faster than the neural processing unit of any AI PC today' (Apple, May 2024)",
+        "src": "apple-m4",
     },
 }
 

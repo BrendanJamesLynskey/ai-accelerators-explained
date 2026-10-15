@@ -14,6 +14,11 @@ const PAGES = [
   "/learn/03-systolic-designs",
   "/learn/04-wafer-scale",
   "/learn/05-compiler-scheduled",
+  "/learn/06-reconfigurable-dataflow",
+  "/learn/07-meshes-of-cores",
+  "/learn/08-fpgas-and-npus",
+  "/learn/09-in-memory-compute",
+  "/learn/10-choosing",
 ];
 
 async function collectErrors(page: Page): Promise<string[]> {
@@ -286,25 +291,29 @@ test("the specs page marks every status and dates every source", async ({
   await expect(page.locator("#part-wse-3t")).toContainText("announced");
   await expect(page.locator("#part-groq3")).toContainText("announced");
   await expect(page.locator("#part-groqchip")).toContainText("retired");
-  await expect(page.locator("[data-claim]")).toHaveCount(5);
+  await expect(page.locator("[data-claim]")).toHaveCount(7);
+  await expect(page.locator("#part-sn50")).toContainText("announced");
+  await expect(page.locator("#part-v70")).toContainText("retired");
+  await expect(page.locator("#part-hermes")).toContainText("research");
   await expect(page.locator("#families + div [data-family]")).toHaveCount(8);
 });
 
 test("the about page shows the validation band", async ({ page }) => {
   await page.goto("/about#validation");
-  await expect(page.locator("[data-check]")).toHaveCount(7);
+  await expect(page.locator("[data-check]")).toHaveCount(9);
   await expect(
     page.locator("[data-check='cerebras-70b-wafers'] td").last(),
   ).toHaveText("1");
 });
 
-test("the chapter index links chapters 1 to 5 and lists the rest, unlinked", async ({
+test("the chapter index and the home page link all ten chapters", async ({
   page,
 }) => {
   await page.goto("/learn");
-  await expect(page.locator("main ol a[href^='/learn/']")).toHaveCount(5);
-  await expect(page.locator("[data-coming] li")).toHaveCount(5);
-  await expect(page.locator("[data-coming] a")).toHaveCount(0);
+  await expect(page.locator("main ol a[href^='/learn/']")).toHaveCount(10);
+  await expect(page.locator("[data-coming]")).toHaveCount(0);
+  await page.goto("/");
+  await expect(page.locator("nav[aria-label='Chapters'] a")).toHaveCount(10);
 });
 
 test("the about page ends with the author credit", async ({ page }) => {

@@ -10,6 +10,12 @@ import fx from "../fixtures/accel_fixtures.json";
 
 import {
   chainCaption,
+  chooseCaption,
+  dataflowCaption,
+  edgeCaption,
+  imcCaption,
+  meshCaption,
+  partShort,
   mapCaption,
   mxuCaption,
   sweepCaption,
@@ -17,7 +23,14 @@ import {
 } from "@/lib/accel/captions";
 import {
   decode,
+  imcLayer,
+  meshLayer,
   part,
+  type Choice,
+  type DataflowStep,
+  type EdgeStep,
+  type ImcStep,
+  type MeshStep,
   ridge,
   type ChainStep,
   type DefectStep,
@@ -215,4 +228,155 @@ test("chain: one token through 576 GroqChips, then one chip per stage", async ({
     chainCaption(one[100]!, d1, "GroqChip", 722e-9),
   );
   await expect(fig.locator("[data-stage]")).toHaveCount(one.length);
+});
+
+test("dataflow: a prefill layer kernel by kernel and fused, then decode", async ({
+  page,
+}) => {
+  await page.goto("/learn/06-reconfigurable-dataflow");
+  const fig = page.getByTestId("dataflow-widget");
+  const steps = (m: string, t: number) =>
+    fx.dataflowSteps.find((c) => c.model === m && c.tokens === t)!
+      .out as DataflowStep[];
+  const pf = steps("llama3-8b", 2048);
+  for (const s of [0, 2, 10]) {
+    await show(fig, s);
+    await expect(fig.getByTestId("caption")).toHaveText(
+      dataflowCaption(pf[s]!, 11, "SN40L RDU"),
+    );
+    await expect(
+      fig.locator(`[data-lane='u'][data-op='${s}']`),
+    ).toHaveAttribute("data-state", "active");
+  }
+  await change(fig, () =>
+    fig.getByRole("radio", { name: "Decode, batch 1" }).click(),
+  );
+  const d1 = steps("llama3-8b", 1);
+  await show(fig, 4);
+  await expect(fig.getByTestId("caption")).toHaveText(
+    dataflowCaption(d1[4]!, 11, "SN40L RDU"),
+  );
+});
+
+test("mesh: a 70B layer on 3 cards, then on 1", async ({ page }) => {
+  await page.goto("/learn/07-meshes-of-cores");
+  const fig = page.getByTestId("mesh-widget");
+  const steps = (n: number) =>
+    fx.meshSteps.find(
+      (c) => c.model === "llama3-70b" && c.batch === 1 && c.cards === n,
+    )!.out as MeshStep[];
+  const m3 = meshLayer("blackhole", "llama3-70b", "fp8", 1, 1024, 3);
+  const three = steps(3);
+  for (const s of [0, 3, 6]) {
+    await show(fig, s);
+    await expect(fig.getByTestId("caption")).toHaveText(
+      meshCaption(three[s]!, 7, 3, m3.cores, m3.core_sram),
+    );
+  }
+  await expect(fig.locator("[data-cores]")).toHaveAttribute(
+    "data-cores",
+    "120",
+  );
+  await change(fig, () =>
+    fig
+      .getByRole("radiogroup", { name: "Cards" })
+      .getByRole("radio", { name: "1", exact: true })
+      .click(),
+  );
+  const one = steps(1);
+  await show(fig, 3);
+  await expect(fig.getByTestId("caption")).toHaveText(
+    meshCaption(one[3]!, 7, 1, m3.cores, m3.core_sram),
+  );
+});
+
+test("edge: Llama 3.1 8B at every width on the M4, then the V70", async ({
+  page,
+}) => {
+  await page.goto("/learn/08-fpgas-and-npus");
+  const fig = page.getByTestId("edge-widget");
+  const steps = (p: string) =>
+    fx.edgeSteps.find(
+      (c) => c.part === p && c.model === "llama3-8b" && c.ctx === 1024,
+    )!.out as EdgeStep[];
+  const m4 = steps("m4");
+  for (const s of [0, 1, 6]) {
+    await show(fig, s);
+    await expect(fig.getByTestId("caption")).toHaveText(
+      edgeCaption(m4[s]!, 7, "Apple M4"),
+    );
+    await expect(fig.locator(`[data-bits='${m4[s]!.bits}']`)).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+  }
+  await change(fig, () =>
+    fig.getByRole("radio", { name: "AMD Alveo V70" }).click(),
+  );
+  const v = steps("v70");
+  await show(fig, 4);
+  await expect(fig.getByTestId("caption")).toHaveText(
+    edgeCaption(v[4]!, 7, "AMD Alveo V70"),
+  );
+});
+
+test("crossbar: one 8B layer, then the 70B model in the precise mode", async ({
+  page,
+}) => {
+  await page.goto("/learn/09-in-memory-compute");
+  const fig = page.getByTestId("crossbar-widget");
+  const steps = (m: string, ph: number) =>
+    fx.imcSteps.find((c) => c.model === m && c.phase === ph)!.out as ImcStep[];
+  const a = steps("llama3-8b", 1);
+  const ma = imcLayer("llama3-8b", 1);
+  for (const s of [0, 1, 2, 5]) {
+    await show(fig, s);
+    await expect(fig.getByTestId("caption")).toHaveText(
+      imcCaption(a[s]!, ma, "Llama 3.1 8B"),
+    );
+  }
+  await show(fig, 2);
+  await expect(fig.locator("[data-digital]")).toHaveAttribute(
+    "data-digital",
+    "active",
+  );
+  await change(fig, () =>
+    fig.getByRole("radio", { name: "4-phase (precise)" }).click(),
+  );
+  await change(fig, () =>
+    fig.getByRole("radio", { name: "Llama 3.1 70B" }).click(),
+  );
+  const b = steps("llama3-70b", 4);
+  await show(fig, 4);
+  await expect(fig.getByTestId("caption")).toHaveText(
+    imcCaption(b[4]!, imcLayer("llama3-70b", 4), "Llama 3.1 70B"),
+  );
+});
+
+test("choose: every family on Llama 3.1 70B, then 8B", async ({ page }) => {
+  await page.goto("/learn/10-choosing");
+  const fig = page.getByTestId("choose-widget");
+  const rows = (m: string) =>
+    fx.choose.find(
+      (c) =>
+        c.model === m && c.batch === 1 && c.ctx === 1024 && c.prompt === 2048,
+    )!.out as Choice[];
+  const big = rows("llama3-70b");
+  for (const s of [0, 3, 7]) {
+    await show(fig, s);
+    await expect(fig.getByTestId("caption")).toHaveText(
+      chooseCaption(big[s]!, 8, "Llama 3.1 70B", partShort(big[s]!.part)),
+    );
+    await expect(
+      fig.locator(`[data-family='${big[s]!.family}']`),
+    ).toHaveAttribute("data-state", "active");
+  }
+  await change(fig, () =>
+    fig.getByRole("radio", { name: "Llama 3.1 8B" }).click(),
+  );
+  const small = rows("llama3-8b");
+  await show(fig, 6);
+  await expect(fig.getByTestId("caption")).toHaveText(
+    chooseCaption(small[6]!, 8, "Llama 3.1 8B", partShort(small[6]!.part)),
+  );
 });
