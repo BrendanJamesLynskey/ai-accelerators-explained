@@ -26,7 +26,9 @@ these chips go into). Chapters link the chapters of those sites and of
 on, and the slides of the
 [NVIDIA GPU](https://brendanjameslynskey.github.io/LLM_Hub_NVIDIA_GPUs/) and
 [Google TPU](https://brendanjameslynskey.github.io/LLM_Hub_Google_TPUs/)
-series.
+series, and its own three-deck slide series,
+[AI Accelerators](https://brendanjameslynskey.github.io/LLM_Hub_AI_Accelerators/)
+(built from this model by the owner's deck build).
 
 **Live:** [ai-accelerators-explained.vercel.app](https://ai-accelerators-explained.vercel.app/)
 
