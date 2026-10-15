@@ -1,0 +1,1518 @@
+{
+ "accessed": "2026-10-15",
+ "sources": {
+  "h100-page": {
+   "title": "NVIDIA H100 product page, Product Specifications (H100 SXM column)",
+   "url": "https://www.nvidia.com/en-us/data-center/h100/",
+   "kind": "vendor product page",
+   "accessed": "2026-10-15"
+  },
+  "hopper-blog": {
+   "title": "NVIDIA Hopper Architecture In-Depth (NVIDIA Technical Blog)",
+   "url": "https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/",
+   "kind": "vendor technical blog",
+   "accessed": "2026-10-15"
+  },
+  "hgx-page": {
+   "title": "NVIDIA HGX platform page, HGX B200 specifications ('Specification in Sparse. Dense is 1/2 sparse spec shown')",
+   "url": "https://www.nvidia.com/en-us/data-center/hgx/",
+   "kind": "vendor product page",
+   "accessed": "2026-10-15"
+  },
+  "dgx-b200-page": {
+   "title": "NVIDIA DGX B200 product page, Specifications",
+   "url": "https://www.nvidia.com/en-us/data-center/dgx-b200/",
+   "kind": "vendor product page",
+   "accessed": "2026-10-15"
+  },
+  "tpu-arch": {
+   "title": "Google Cloud TPU documentation: TPU architecture (TensorCores and MXUs)",
+   "url": "https://cloud.google.com/tpu/docs/system-architecture-tpu-vm",
+   "kind": "vendor documentation",
+   "accessed": "2026-10-15"
+  },
+  "tpu-v6e": {
+   "title": "Google Cloud TPU documentation: TPU v6e (Trillium), system architecture table",
+   "url": "https://cloud.google.com/tpu/docs/v6e",
+   "kind": "vendor documentation",
+   "accessed": "2026-10-15"
+  },
+  "tpu-7x": {
+   "title": "Google Cloud TPU documentation: TPU7x (Ironwood), system architecture table and memory hierarchy",
+   "url": "https://cloud.google.com/tpu/docs/tpu7x",
+   "kind": "vendor documentation",
+   "accessed": "2026-10-15"
+  },
+  "trn2-arch": {
+   "title": "AWS Neuron documentation: Trainium2 architecture",
+   "url": "https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trainium2.html",
+   "kind": "vendor documentation",
+   "accessed": "2026-10-15"
+  },
+  "nc3-arch": {
+   "title": "AWS Neuron documentation: NeuronCore-v3 architecture (on-chip SRAM, Tensor Engine)",
+   "url": "https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/neuron-core-v3.html",
+   "kind": "vendor documentation",
+   "accessed": "2026-10-15"
+  },
+  "nki-trn2": {
+   "title": "AWS Neuron documentation: NKI, Trainium2 architecture guide (TensorE PE grid)",
+   "url": "https://awsdocs-neuron.readthedocs-hosted.com/en/latest/nki/guides/architecture/trainium2_arch.html",
+   "kind": "vendor documentation",
+   "accessed": "2026-10-15"
+  },
+  "cs3-datasheet": {
+   "title": "Cerebras, 'The World's Fastest AI Infrastructure': CS-3 and WSE-3 datasheet (PDF; 'FLOPS shown as sparse')",
+   "url": "https://cdn.sanity.io/files/e4qjo92p/production/864133620041e5af418074842e42a669c137fa23.pdf",
+   "kind": "vendor datasheet",
+   "accessed": "2026-10-15"
+  },
+  "cerebras-wp": {
+   "title": "Cerebras white paper, 'The Cerebras Wafer-Scale Architecture for Deep Learning' (PDF)",
+   "url": "https://cdn.sanity.io/files/e4qjo92p/production/2d7fa58e3b820715664bcf42097e86c05070c161.pdf",
+   "kind": "vendor white paper",
+   "accessed": "2026-10-15"
+  },
+  "cs4-datasheet": {
+   "title": "Cerebras, 'Meet CS-4' datasheet (PDF; 'AI compute shown as sparse FP16')",
+   "url": "https://cdn.sanity.io/files/e4qjo92p/production/bb028ae2422089dfbcc9fd2455c021f3625c7a75.pdf",
+   "kind": "vendor datasheet",
+   "accessed": "2026-10-15"
+  },
+  "cs4-page": {
+   "title": "Cerebras CS-4 system page ('First CS-4 shipments begin this quarter')",
+   "url": "https://www.cerebras.ai/system",
+   "kind": "vendor product page",
+   "accessed": "2026-10-15"
+  },
+  "cerebras-chip": {
+   "title": "Cerebras WSE-3 Turbo chip page ('How Cerebras Solved the Yield Problem')",
+   "url": "https://www.cerebras.ai/chip",
+   "kind": "vendor product page",
+   "accessed": "2026-10-15"
+  },
+  "cerebras-inference": {
+   "title": "Cerebras blog, 'Introducing Cerebras Inference: AI at Instant Speed' (August 2024)",
+   "url": "https://www.cerebras.ai/blog/introducing-cerebras-inference-ai-at-instant-speed",
+   "kind": "vendor blog",
+   "accessed": "2026-10-15"
+  },
+  "groqchip-brief": {
+   "title": "Groq, GroqChip Processor Product Brief v1.5 (2022; Internet Archive copy of groq.com)",
+   "url": "https://web.archive.org/web/20250615145238/https://groq.com/wp-content/uploads/2022/10/GroqChip%E2%84%A2-Processor-Product-Brief-v1.5.pdf",
+   "kind": "vendor datasheet",
+   "accessed": "2026-10-15"
+  },
+  "groq-isca22": {
+   "title": "Abts et al., 'A Software-defined Tensor Streaming Multiprocessor for Large-scale Machine Learning', ISCA 2022 (Groq's copy, Internet Archive)",
+   "url": "https://web.archive.org/web/20250612160012/https://groq.com/wp-content/uploads/2024/02/GroqISCAPaper2022_ASoftwareDefinedTensorStreamingMultiprocessorForLargeScaleMachineLearning-1.pdf",
+   "kind": "paper (ISCA 2022)",
+   "accessed": "2026-10-15"
+  },
+  "lpx-page": {
+   "title": "NVIDIA Groq 3 LPX product page (LPU accelerator and rack)",
+   "url": "https://www.nvidia.com/en-us/data-center/lpx/",
+   "kind": "vendor product page",
+   "accessed": "2026-10-15"
+  },
+  "groq-home": {
+   "title": "Groq home page, LPX rack figures ('When released, each NVIDIA Groq 3 LPX rack connects 256 next-generation LPU accelerators')",
+   "url": "https://groq.com/",
+   "kind": "vendor product page",
+   "accessed": "2026-10-15"
+  },
+  "nextplatform-groq": {
+   "title": "The Next Platform, 'Groq Says It Can Deploy 1 Million AI Inference Chips In Two Years' (2023-11-27): Groq's Llama 2 70B demonstration",
+   "url": "https://www.nextplatform.com/2023/11/27/groq-says-it-can-deploy-1-million-ai-inference-chips-in-two-years/",
+   "kind": "trade press (reports a vendor demonstration)",
+   "accessed": "2026-10-15"
+  },
+  "mlperf-h100": {
+   "title": "MLCommons, MLPerf Inference v4.0 results: NVIDIA DGX H100 (8x H100-SXM-80GB, TensorRT), llama2-70b-99.9, Offline, mlperf_log_summary.txt",
+   "url": "https://raw.githubusercontent.com/mlcommons/inference_results_v4.0/main/closed/NVIDIA/results/DGX-H100_H100-SXM-80GBx8_TRT/llama2-70b-99.9/Offline/performance/run_1/mlperf_log_summary.txt",
+   "kind": "benchmark result log",
+   "accessed": "2026-10-15"
+  },
+  "mlperf-llama2": {
+   "title": "MLCommons inference reference implementation, Llama 2 70B README ('Tokens per sample: 294.45')",
+   "url": "https://github.com/mlcommons/inference/blob/master/language/llama2-70b/README.md",
+   "kind": "benchmark documentation",
+   "accessed": "2026-10-15"
+  },
+  "nv-mlperf-v40": {
+   "title": "NVIDIA Technical Blog, 'NVIDIA H200 Tensor Core GPUs and NVIDIA TensorRT-LLM Set MLPerf LLM Inference Records' (MLPerf Inference v4.0; FP8 quantization)",
+   "url": "https://developer.nvidia.com/blog/nvidia-h200-tensor-core-gpus-and-nvidia-tensorrt-llm-set-mlperf-llm-inference-records/",
+   "kind": "vendor technical blog",
+   "accessed": "2026-10-15"
+  },
+  "llama3": {
+   "title": "Grattafiori et al., 'The Llama 3 Herd of Models', arXiv:2407.21783 (Table 3)",
+   "url": "https://arxiv.org/abs/2407.21783",
+   "kind": "paper",
+   "accessed": "2026-10-15"
+  },
+  "llama2": {
+   "title": "Touvron et al., 'Llama 2: Open Foundation and Fine-Tuned Chat Models', arXiv:2307.09288",
+   "url": "https://arxiv.org/abs/2307.09288",
+   "kind": "paper",
+   "accessed": "2026-10-15"
+  },
+  "sze-survey": {
+   "title": "Sze, Chen, Yang and Emer, 'Efficient Processing of Deep Neural Networks: A Tutorial and Survey', arXiv:1703.09039",
+   "url": "https://arxiv.org/abs/1703.09039",
+   "kind": "paper",
+   "accessed": "2026-10-15"
+  },
+  "sn40l": {
+   "title": "Prabhakar et al., 'SambaNova SN40L: Scaling the AI Memory Wall with Dataflow and Composition of Experts', arXiv:2405.07518",
+   "url": "https://arxiv.org/abs/2405.07518",
+   "kind": "paper",
+   "accessed": "2026-10-15"
+  },
+  "sambanova-rdu": {
+   "title": "SambaNova, RDU chip page (SN50: dataflow execution, tiered memory)",
+   "url": "https://sambanova.ai/technology/sn40l-rdu-ai-chip",
+   "kind": "vendor product page",
+   "accessed": "2026-10-15"
+  },
+  "ipu-dissect": {
+   "title": "Jia, Tillman, Maggioni and Scarpazza, 'Dissecting the Graphcore IPU Architecture via Microbenchmarking', arXiv:1912.03413",
+   "url": "https://arxiv.org/abs/1912.03413",
+   "kind": "paper",
+   "accessed": "2026-10-15"
+  },
+  "tt-hardware": {
+   "title": "Tenstorrent hardware page (Blackhole: Tensix cores, 'big RISC-V' cores, GDDR6, QSFP-DD 800G ports)",
+   "url": "https://tenstorrent.com/hardware/blackhole",
+   "kind": "vendor product page",
+   "accessed": "2026-10-15"
+  },
+  "amd-aie": {
+   "title": "AMD AI Engine technology page (Versal adaptive SoCs: 2-D array of VLIW SIMD tiles with local memory)",
+   "url": "https://www.amd.com/en/products/adaptive-socs-and-fpgas/technologies/ai-engine.html",
+   "kind": "vendor product page",
+   "accessed": "2026-10-15"
+  },
+  "apple-m4": {
+   "title": "Apple Newsroom, 'Apple introduces M4 chip' (2024-05-07; Neural Engine 38 trillion operations per second)",
+   "url": "https://www.apple.com/newsroom/2024/05/apple-introduces-m4-chip/",
+   "kind": "vendor press release",
+   "accessed": "2026-10-15"
+  },
+  "pcm-imc": {
+   "title": "Le Gallo et al., 'A 64-core mixed-signal in-memory compute chip based on phase-change memory for deep neural network inference', arXiv:2212.02872",
+   "url": "https://arxiv.org/abs/2212.02872",
+   "kind": "paper",
+   "accessed": "2026-10-15"
+  }
+ },
+ "families": [
+  {
+   "id": "gpu",
+   "name": "GPUs",
+   "chapter": 2,
+   "example": "NVIDIA H100, B200",
+   "placement": {
+    "v": 0,
+    "st": "spec",
+    "src": "hopper-blog",
+    "ref": "weights in HBM; a 50 MB L2 cache 'reduces trips to HBM3'"
+   },
+   "schedule": {
+    "v": 0,
+    "st": "spec",
+    "src": "hopper-blog",
+    "ref": "warps scheduled by the SMs at run time; L2 is a hardware-managed cache"
+   },
+   "grain": {
+    "v": 1,
+    "st": "spec",
+    "src": "hopper-blog",
+    "ref": "132 SMs per H100 SXM5, each with tensor cores"
+   }
+  },
+  {
+   "id": "systolic",
+   "name": "Systolic designs",
+   "chapter": 3,
+   "example": "Google TPU, AWS Trainium",
+   "placement": {
+    "v": 0,
+    "st": "spec",
+    "src": "tpu-7x",
+    "ref": "weights in HBM; VMEM is 'a high-speed scratchpad' the compiler and kernels manage"
+   },
+   "schedule": {
+    "v": 2,
+    "st": "spec",
+    "src": "tpu-arch",
+    "ref": "programs reach the TensorCores through the XLA compiler (the documentation's XLA compiler and flags); VMEM is managed by the compiler and custom kernels"
+   },
+   "grain": {
+    "v": 0,
+    "st": "spec",
+    "src": "tpu-arch",
+    "ref": "a few 256 x 256 or 128 x 128 MXUs per TensorCore"
+   }
+  },
+  {
+   "id": "wafer",
+   "name": "Wafer-scale",
+   "chapter": 4,
+   "example": "Cerebras WSE-3",
+   "placement": {
+    "v": 2,
+    "st": "spec",
+    "src": "cerebras-inference",
+    "ref": "'we split them at layer boundaries and map them to multiple CS-3 systems'; 44 GB of on-chip SRAM per wafer"
+   },
+   "schedule": {
+    "v": 1,
+    "st": "spec",
+    "src": "cerebras-wp",
+    "ref": "static routes on the fabric; computation 'triggered by the data' in each core"
+   },
+   "grain": {
+    "v": 2,
+    "st": "spec",
+    "src": "cerebras-wp",
+    "ref": "900,000 cores on one wafer"
+   }
+  },
+  {
+   "id": "lpu",
+   "name": "Compiler-scheduled",
+   "chapter": 5,
+   "example": "Groq LPU",
+   "placement": {
+    "v": 2,
+    "st": "spec",
+    "src": "groqchip-brief",
+    "ref": "230 MB SRAM per chip, 'without the need for external memory'"
+   },
+   "schedule": {
+    "v": 2,
+    "st": "spec",
+    "src": "groq-isca22",
+    "ref": "'statically scheduled, deterministic execution'; even chip-to-chip transfers are scheduled"
+   },
+   "grain": {
+    "v": 0,
+    "st": "spec",
+    "src": "groq-isca22",
+    "ref": "'instruction execution [partitioned] into functional slices': a few wide slices on one chip"
+   }
+  },
+  {
+   "id": "dataflow",
+   "name": "Reconfigurable dataflow",
+   "chapter": 6,
+   "example": "SambaNova RDU, Graphcore IPU",
+   "also": [
+    "sambanova-rdu"
+   ],
+   "placement": {
+    "v": 1,
+    "st": "spec",
+    "src": "sn40l",
+    "ref": "SN40L: 'three-tier memory system with on-chip distributed SRAM, on-package HBM, and off-package DDR DRAM'"
+   },
+   "schedule": {
+    "v": 2,
+    "st": "spec",
+    "src": "sn40l",
+    "ref": "dataflow: operations fused into one pipeline on the chip instead of a kernel per operation (the paper's 'fused operations')"
+   },
+   "grain": {
+    "v": 1,
+    "st": "spec",
+    "src": "ipu-dissect",
+    "ref": "IPU (GC2): '1,216 tiles', each a core with its own memory"
+   }
+  },
+  {
+   "id": "mesh",
+   "name": "Meshes of small cores",
+   "chapter": 7,
+   "example": "Tenstorrent Blackhole",
+   "placement": {
+    "v": 1,
+    "st": "spec",
+    "src": "tt-hardware",
+    "ref": "Tensix cores with local SRAM, plus GDDR6 per chip"
+   },
+   "schedule": {
+    "v": 1,
+    "st": "spec",
+    "src": "tt-hardware",
+    "ref": "small RISC-V cores in every Tensix core run the data movement"
+   },
+   "grain": {
+    "v": 1,
+    "st": "spec",
+    "src": "tt-hardware",
+    "ref": "120 Tensix cores per Blackhole chip"
+   }
+  },
+  {
+   "id": "fpga-npu",
+   "name": "FPGAs and edge NPUs",
+   "chapter": 8,
+   "example": "AMD Versal AI Engines, Apple Neural Engine",
+   "also": [
+    "apple-m4"
+   ],
+   "placement": {
+    "v": 1,
+    "st": "spec",
+    "src": "amd-aie",
+    "ref": "each AI Engine tile has local data memory; weights also stream from DRAM"
+   },
+   "schedule": {
+    "v": 2,
+    "st": "spec",
+    "src": "amd-aie",
+    "ref": "'DMA engines for scheduled data movement'"
+   },
+   "grain": {
+    "v": 1,
+    "st": "spec",
+    "src": "amd-aie",
+    "ref": "'10s to 100s of AI Engines in a single device'"
+   }
+  },
+  {
+   "id": "imc",
+   "name": "In-memory and analogue",
+   "chapter": 9,
+   "example": "phase-change crossbars (research)",
+   "also": [
+    "sze-survey"
+   ],
+   "placement": {
+    "v": 3,
+    "st": "spec",
+    "src": "pcm-imc",
+    "ref": "weights stored as device conductances; the multiply happens in the array"
+   },
+   "schedule": {
+    "v": 2,
+    "st": "spec",
+    "src": "pcm-imc",
+    "ref": "weights programmed into the devices' conductances before inference; the network is mapped onto the cores"
+   },
+   "grain": {
+    "v": 1,
+    "st": "spec",
+    "src": "pcm-imc",
+    "ref": "64 in-memory compute cores on one chip"
+   }
+  }
+ ],
+ "placementLabels": [
+  "off-chip DRAM",
+  "tiered SRAM + DRAM",
+  "on-chip SRAM",
+  "in the memory array"
+ ],
+ "scheduleLabels": [
+  "hardware, at run time",
+  "mixed",
+  "compiler, ahead of time"
+ ],
+ "grainLabels": [
+  "a few large engines",
+  "tens to hundreds of cores",
+  "hundreds of thousands of cores"
+ ],
+ "parts": [
+  {
+   "id": "h100",
+   "name": "NVIDIA H100 SXM",
+   "family": "gpu",
+   "layout": "tensor",
+   "avail": {
+    "v": "product",
+    "st": "spec",
+    "src": "h100-page",
+    "ref": "product page with specifications"
+   },
+   "fields": {
+    "peak_bf16": {
+     "v": 989500000000000.0,
+     "st": "derived",
+     "src": "h100-page",
+     "ref": "BF16 Tensor Core 1,979 teraFLOPS is with sparsity; dense is half"
+    },
+    "peak_fp8": {
+     "v": 1979000000000000.0,
+     "st": "derived",
+     "src": "h100-page",
+     "ref": "FP8 Tensor Core 3,958 teraFLOPS is with sparsity; dense is half"
+    },
+    "peak_int8": {
+     "v": 1979000000000000.0,
+     "st": "derived",
+     "src": "h100-page",
+     "ref": "INT8 Tensor Core 3,958 TOPS is with sparsity; dense is half"
+    },
+    "sram_bytes": {
+     "v": 50000000.0,
+     "st": "spec",
+     "src": "hopper-blog",
+     "ref": "50 MB L2 cache (H100 SXM5)"
+    },
+    "sram_bw": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "hopper-blog",
+     "ref": "L2 bandwidth not given in the sources used"
+    },
+    "off_bytes": {
+     "v": 80000000000.0,
+     "st": "spec",
+     "src": "h100-page",
+     "ref": "GPU Memory 80GB"
+    },
+    "off_bw": {
+     "v": 3350000000000.0,
+     "st": "spec",
+     "src": "h100-page",
+     "ref": "GPU Memory Bandwidth 3.35TB/s"
+    },
+    "c2c_bidir": {
+     "v": 900000000000.0,
+     "st": "spec",
+     "src": "h100-page",
+     "ref": "NVIDIA NVLink 900GB/s"
+    },
+    "hop_s": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "h100-page",
+     "ref": "NVLink latency not given in the sources used"
+    },
+    "power_w": {
+     "v": 700,
+     "st": "spec",
+     "src": "h100-page",
+     "ref": "Max Thermal Design Power: up to 700W (configurable)"
+    },
+    "units": {
+     "v": 132,
+     "st": "spec",
+     "src": "hopper-blog",
+     "ref": "132 SMs per GPU (H100 SXM5)"
+    }
+   }
+  },
+  {
+   "id": "b200",
+   "name": "NVIDIA B200 (HGX B200)",
+   "family": "gpu",
+   "layout": "tensor",
+   "avail": {
+    "v": "product",
+    "st": "spec",
+    "src": "hgx-page",
+    "ref": "'HGX B300 and HGX B200 shipping now'"
+   },
+   "fields": {
+    "peak_bf16": {
+     "v": 2250000000000000.0,
+     "st": "derived",
+     "src": "hgx-page",
+     "ref": "HGX B200 FP16/BF16 36 PFLOPS sparse for 8 GPUs: dense per GPU = 36 / 2 / 8"
+    },
+    "peak_fp8": {
+     "v": 4500000000000000.0,
+     "st": "derived",
+     "src": "hgx-page",
+     "ref": "HGX B200 FP8/FP6 72 PFLOPS sparse for 8 GPUs: dense per GPU = 72 / 2 / 8"
+    },
+    "peak_int8": {
+     "v": 4500000000000000.0,
+     "st": "derived",
+     "src": "hgx-page",
+     "ref": "HGX B200 INT8 72 POPS sparse for 8 GPUs: dense per GPU = 72 / 2 / 8"
+    },
+    "sram_bytes": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "hgx-page",
+     "ref": "L2 size not given in the sources used"
+    },
+    "sram_bw": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "hgx-page",
+     "ref": "not given in the sources used"
+    },
+    "off_bytes": {
+     "v": 180000000000.0,
+     "st": "derived",
+     "src": "dgx-b200-page",
+     "ref": "1,440 GB total GPU memory for 8 GPUs"
+    },
+    "off_bw": {
+     "v": 8000000000000.0,
+     "st": "derived",
+     "src": "dgx-b200-page",
+     "ref": "64 TB/s HBM3e bandwidth for 8 GPUs"
+    },
+    "c2c_bidir": {
+     "v": 1800000000000.0,
+     "st": "spec",
+     "src": "hgx-page",
+     "ref": "NVLink GPU-to-GPU bandwidth 1.8 TB/s"
+    },
+    "hop_s": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "hgx-page",
+     "ref": "NVLink latency not given in the sources used"
+    },
+    "power_w": {
+     "v": 1787.5,
+     "st": "derived",
+     "src": "dgx-b200-page",
+     "ref": "~14.3 kW max system power for 8 GPUs: a system share per GPU (includes CPUs, network, fans), not a GPU TDP"
+    },
+    "units": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "hgx-page",
+     "ref": "SM count not given in the sources used"
+    }
+   }
+  },
+  {
+   "id": "tpu-v6e",
+   "name": "Google TPU v6e (Trillium)",
+   "family": "systolic",
+   "layout": "tensor",
+   "avail": {
+    "v": "product",
+    "st": "spec",
+    "src": "tpu-v6e",
+    "ref": "Cloud TPU documentation lists v6e configurations"
+   },
+   "fields": {
+    "peak_bf16": {
+     "v": 918000000000000.0,
+     "st": "spec",
+     "src": "tpu-v6e",
+     "ref": "Peak compute per chip (bf16) 918 TFLOPs"
+    },
+    "peak_fp8": {
+     "v": 918000000000000.0,
+     "st": "spec",
+     "src": "tpu-7x",
+     "ref": "comparison table: Peak compute per chip (FP8) 918 TFLOPs for v6e"
+    },
+    "peak_int8": {
+     "v": 1836000000000000.0,
+     "st": "spec",
+     "src": "tpu-v6e",
+     "ref": "Peak compute per chip (Int8) 1836 TOPs"
+    },
+    "sram_bytes": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "tpu-v6e",
+     "ref": "on-chip memory size not given in the sources used"
+    },
+    "sram_bw": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "tpu-v6e",
+     "ref": "not given in the sources used"
+    },
+    "off_bytes": {
+     "v": 32000000000.0,
+     "st": "spec",
+     "src": "tpu-v6e",
+     "ref": "HBM capacity per chip 32 GB"
+    },
+    "off_bw": {
+     "v": 1638000000000.0,
+     "st": "spec",
+     "src": "tpu-v6e",
+     "ref": "HBM bandwidth per chip 1638 GBps"
+    },
+    "c2c_bidir": {
+     "v": 800000000000.0,
+     "st": "spec",
+     "src": "tpu-v6e",
+     "ref": "Bidirectional inter-chip interconnect (ICI) bandwidth (per chip) 800 GBps"
+    },
+    "hop_s": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "tpu-v6e",
+     "ref": "ICI latency not given in the sources used"
+    },
+    "power_w": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "tpu-v6e",
+     "ref": "chip power not given in the sources used"
+    },
+    "units": {
+     "v": 2,
+     "st": "spec",
+     "src": "tpu-v6e",
+     "ref": "one TensorCore with 2 MXUs"
+    },
+    "array_rows": {
+     "v": 256,
+     "st": "spec",
+     "src": "tpu-arch",
+     "ref": "An MXU is composed of 256 x 256 (TPU v6e and TPU7x) multiply-accumulators in a systolic array"
+    },
+    "array_cols": {
+     "v": 256,
+     "st": "spec",
+     "src": "tpu-arch",
+     "ref": "256 x 256"
+    }
+   }
+  },
+  {
+   "id": "tpu-7x",
+   "name": "Google TPU7x (Ironwood)",
+   "family": "systolic",
+   "layout": "tensor",
+   "avail": {
+    "v": "product",
+    "st": "spec",
+    "src": "tpu-7x",
+    "ref": "Cloud TPU documentation lists TPU7x configurations"
+   },
+   "fields": {
+    "peak_bf16": {
+     "v": 2307000000000000.0,
+     "st": "spec",
+     "src": "tpu-7x",
+     "ref": "Peak compute per chip (BF16) 2307 TFLOPs"
+    },
+    "peak_fp8": {
+     "v": 4614000000000000.0,
+     "st": "spec",
+     "src": "tpu-7x",
+     "ref": "Peak compute per chip (FP8) 4614 TFLOPs"
+    },
+    "peak_int8": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "tpu-7x",
+     "ref": "INT8 rate not given in the sources used"
+    },
+    "sram_bytes": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "tpu-7x",
+     "ref": "VMEM size 'is a tunable parameter'; total not given"
+    },
+    "sram_bw": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "tpu-7x",
+     "ref": "'significantly higher bandwidth to the MXU than HBM'; no figure"
+    },
+    "off_bytes": {
+     "v": 206158430208,
+     "st": "spec",
+     "src": "tpu-7x",
+     "ref": "HBM capacity per chip 192 GiB (the prose says '192 GB'; the table's GiB is used)"
+    },
+    "off_bw": {
+     "v": 7380000000000.0,
+     "st": "spec",
+     "src": "tpu-7x",
+     "ref": "HBM bandwidth per chip 7380 GBps"
+    },
+    "c2c_bidir": {
+     "v": 1200000000000.0,
+     "st": "spec",
+     "src": "tpu-7x",
+     "ref": "Bidirectional ICI bandwidth per chip 1200 GBps"
+    },
+    "hop_s": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "tpu-7x",
+     "ref": "ICI latency not given in the sources used"
+    },
+    "power_w": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "tpu-7x",
+     "ref": "chip power not given in the sources used"
+    },
+    "units": {
+     "v": 2,
+     "st": "spec",
+     "src": "tpu-7x",
+     "ref": "two TensorCores per chip (one per chiplet)"
+    },
+    "array_rows": {
+     "v": 256,
+     "st": "spec",
+     "src": "tpu-arch",
+     "ref": "MXU of 256 x 256 multiply-accumulators (TPU v6e and TPU7x)"
+    },
+    "array_cols": {
+     "v": 256,
+     "st": "spec",
+     "src": "tpu-arch",
+     "ref": "256 x 256"
+    }
+   }
+  },
+  {
+   "id": "trn2",
+   "name": "AWS Trainium2",
+   "family": "systolic",
+   "layout": "tensor",
+   "avail": {
+    "v": "product",
+    "st": "spec",
+    "src": "trn2-arch",
+    "ref": "Neuron documentation for Trn2 instances"
+   },
+   "fields": {
+    "peak_bf16": {
+     "v": 667000000000000.0,
+     "st": "spec",
+     "src": "trn2-arch",
+     "ref": "667 BF16/FP16/TF32 TFLOPS"
+    },
+    "peak_fp8": {
+     "v": 1299000000000000.0,
+     "st": "spec",
+     "src": "trn2-arch",
+     "ref": "1,299 FP8 TFLOPS"
+    },
+    "peak_int8": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "trn2-arch",
+     "ref": "INT8 rate not given in the sources used"
+    },
+    "sram_bytes": {
+     "v": 224000000.0,
+     "st": "derived",
+     "src": "nc3-arch",
+     "ref": "8 NeuronCore-v3 x 28 MB on-chip SRAM each"
+    },
+    "sram_bw": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "nc3-arch",
+     "ref": "not given in the sources used"
+    },
+    "off_bytes": {
+     "v": 103079215104,
+     "st": "spec",
+     "src": "trn2-arch",
+     "ref": "96 GiB of device memory"
+    },
+    "off_bw": {
+     "v": 2900000000000.0,
+     "st": "spec",
+     "src": "trn2-arch",
+     "ref": "2.9 TB/sec of bandwidth"
+    },
+    "c2c_bidir": {
+     "v": 1280000000000.0,
+     "st": "spec",
+     "src": "trn2-arch",
+     "ref": "NeuronLink-v3 provides 1.28 TB/sec bandwidth per chip (direction not stated; taken as both directions)"
+    },
+    "hop_s": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "trn2-arch",
+     "ref": "NeuronLink latency not given in the sources used"
+    },
+    "power_w": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "trn2-arch",
+     "ref": "chip power not given in the sources used"
+    },
+    "units": {
+     "v": 8,
+     "st": "spec",
+     "src": "trn2-arch",
+     "ref": "eight NeuronCore-v3 per chip"
+    },
+    "array_rows": {
+     "v": 128,
+     "st": "spec",
+     "src": "nki-trn2",
+     "ref": "'a grid of 128x128 processing elements'"
+    },
+    "array_cols": {
+     "v": 128,
+     "st": "spec",
+     "src": "nki-trn2",
+     "ref": "128x128"
+    }
+   }
+  },
+  {
+   "id": "wse-3",
+   "name": "Cerebras WSE-3 (CS-3)",
+   "family": "wafer",
+   "layout": "pipeline",
+   "avail": {
+    "v": "product",
+    "st": "spec",
+    "src": "cs3-datasheet",
+    "ref": "CS-3 datasheet; Cerebras Inference ran on CS-3"
+   },
+   "fields": {
+    "peak_fp16_sparse": {
+     "v": 1.25e+17,
+     "st": "spec",
+     "src": "cs3-datasheet",
+     "ref": "125 petaFLOPS FP16, '* FLOPS shown as sparse'"
+    },
+    "peak_bf16": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "cerebras-wp",
+     "ref": "dense rate = 900,000 cores x 8-wide FP16 SIMD x clock; the clock is not given"
+    },
+    "peak_fp8": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "cs3-datasheet",
+     "ref": "no FP8 figure"
+    },
+    "peak_int8": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "cs3-datasheet",
+     "ref": "no INT8 figure"
+    },
+    "sram_bytes": {
+     "v": 44000000000.0,
+     "st": "spec",
+     "src": "cs3-datasheet",
+     "ref": "44 GB of on-chip memory"
+    },
+    "sram_bw": {
+     "v": 2.1e+16,
+     "st": "spec",
+     "src": "cs3-datasheet",
+     "ref": "21 PB/s memory bandwidth"
+    },
+    "off_bytes": {
+     "v": 0,
+     "st": "spec",
+     "src": "cerebras-wp",
+     "ref": "no DRAM on the wafer; weights for training stream from an external MemoryX unit"
+    },
+    "off_bw": {
+     "v": 0,
+     "st": "spec",
+     "src": "cerebras-wp",
+     "ref": "no DRAM on the wafer"
+    },
+    "io_bps": {
+     "v": 1200000000000.0,
+     "st": "spec",
+     "src": "cs3-datasheet",
+     "ref": "I/O Bandwidth 1.2 Tb/s"
+    },
+    "c2c_bidir": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "cs3-datasheet",
+     "ref": "wafer-to-wafer bandwidth for inference not given; system I/O is 1.2 Tb/s"
+    },
+    "hop_s": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "cs4-page",
+     "ref": "CS-3 wafer-to-wafer latency not given (CS-4 is 'less than half the latency')"
+    },
+    "power_w": {
+     "v": 27000.0,
+     "st": "spec",
+     "src": "cs3-datasheet",
+     "ref": "System Power 27 kW max: a whole CS-3 system, not the wafer alone"
+    },
+    "units": {
+     "v": 900000,
+     "st": "spec",
+     "src": "cs3-datasheet",
+     "ref": "900,000 cores"
+    },
+    "area_mm2": {
+     "v": 46225,
+     "st": "spec",
+     "src": "cs3-datasheet",
+     "ref": "46,225 mm2 silicon"
+    },
+    "transistors": {
+     "v": 4000000000000.0,
+     "st": "spec",
+     "src": "cs3-datasheet",
+     "ref": "4 trillion transistors"
+    },
+    "redundancy": {
+     "v": "spare cores and routes; defects shut down and routed round",
+     "st": "spec",
+     "src": "cerebras-chip",
+     "ref": "'redundant compute cores, redundant routing, and a fail-in-place architecture that shuts flaws down and routes around them'"
+    },
+    "dies": {
+     "v": 84,
+     "st": "spec",
+     "src": "cerebras-wp",
+     "ref": "'The final chip contains a total of 84 dies'"
+    },
+    "core_um2": {
+     "v": 38000,
+     "st": "spec",
+     "src": "cerebras-wp",
+     "ref": "'approximately 38,000 um2 of silicon area' per core"
+    },
+    "core_sram": {
+     "v": 48000.0,
+     "st": "spec",
+     "src": "cerebras-wp",
+     "ref": "'48 kB of local SRAM dedicated to the core'"
+    },
+    "fabric_bps": {
+     "v": 2.14e+17,
+     "st": "spec",
+     "src": "cs3-datasheet",
+     "ref": "214 Pb/s fabric bandwidth"
+    }
+   }
+  },
+  {
+   "id": "wse-3t",
+   "name": "Cerebras WSE-3 Turbo (CS-4)",
+   "family": "wafer",
+   "layout": "pipeline",
+   "avail": {
+    "v": "announced",
+    "st": "spec",
+    "src": "cs4-page",
+    "ref": "'First CS-4 shipments begin this quarter' (read 2026-10-15)"
+   },
+   "fields": {
+    "peak_fp16_sparse": {
+     "v": 2.5e+17,
+     "st": "spec",
+     "src": "cs4-datasheet",
+     "ref": "AI Compute 250 PFLOPS per wafer, '*AI compute shown as sparse FP16'"
+    },
+    "peak_bf16": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "cs4-datasheet",
+     "ref": "dense rate not given"
+    },
+    "peak_fp8": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "cs4-datasheet",
+     "ref": "no FP8 figure"
+    },
+    "peak_int8": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "cs4-datasheet",
+     "ref": "no INT8 figure"
+    },
+    "sram_bytes": {
+     "v": 44000000000.0,
+     "st": "spec",
+     "src": "cs4-datasheet",
+     "ref": "900,000 cores; 44 GB SRAM"
+    },
+    "sram_bw": {
+     "v": 4.32e+16,
+     "st": "spec",
+     "src": "cs4-datasheet",
+     "ref": "Memory Bandwidth 43.2 PB/s per wafer"
+    },
+    "off_bytes": {
+     "v": 0,
+     "st": "spec",
+     "src": "cs4-datasheet",
+     "ref": "no DRAM on the wafer"
+    },
+    "off_bw": {
+     "v": 0,
+     "st": "spec",
+     "src": "cs4-datasheet",
+     "ref": "no DRAM on the wafer"
+    },
+    "io_bps": {
+     "v": 2400000000000.0,
+     "st": "spec",
+     "src": "cs4-datasheet",
+     "ref": "I/O Bandwidth 2.4 Tbit/s per wafer"
+    },
+    "c2c_bidir": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "cs4-datasheet",
+     "ref": "wafer-link bandwidth per direction not given; I/O is 2.4 Tbit/s per wafer"
+    },
+    "hop_s": {
+     "v": 2e-06,
+     "st": "spec",
+     "src": "cs4-datasheet",
+     "ref": "I/O latency 2 microseconds ('wafer-to-wafer latency as low as 2 microseconds')"
+    },
+    "power_w": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "cs4-datasheet",
+     "ref": "power not given in the sources used"
+    },
+    "units": {
+     "v": 900000,
+     "st": "spec",
+     "src": "cs4-datasheet",
+     "ref": "900,000 cores"
+    },
+    "area_mm2": {
+     "v": 46225,
+     "st": "spec",
+     "src": "cs4-datasheet",
+     "ref": "46,225 mm2"
+    },
+    "dies": {
+     "v": 84,
+     "st": "spec",
+     "src": "cerebras-wp",
+     "ref": "84 dies (WSE-3)"
+    },
+    "core_um2": {
+     "v": 38000,
+     "st": "spec",
+     "src": "cerebras-wp",
+     "ref": "~38,000 um2 per core (WSE-3)"
+    },
+    "core_sram": {
+     "v": 48000.0,
+     "st": "spec",
+     "src": "cerebras-wp",
+     "ref": "48 kB per core (WSE-3)"
+    },
+    "fabric_bps": {
+     "v": 4.28e+17,
+     "st": "derived",
+     "src": "cs4-datasheet",
+     "ref": "On-Chip Fabric Bandwidth 53.5 PB/s, in bits"
+    }
+   }
+  },
+  {
+   "id": "groqchip",
+   "name": "GroqChip (first-generation LPU)",
+   "family": "lpu",
+   "layout": "pipeline",
+   "avail": {
+    "v": "retired",
+    "st": "spec",
+    "src": "groqchip-brief",
+    "ref": "brief v1.5 (2022): 'In production'; superseded by the Groq 3 LPU"
+   },
+   "fields": {
+    "peak_bf16": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "groqchip-brief",
+     "ref": "FP16 188 TFLOPs is given, BF16 is not"
+    },
+    "peak_fp16": {
+     "v": 188000000000000.0,
+     "st": "spec",
+     "src": "groqchip-brief",
+     "ref": "Up to 750 TOPs, 188 TFLOPs (INT8, FP16 @900 MHz)"
+    },
+    "peak_fp8": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "groqchip-brief",
+     "ref": "no FP8"
+    },
+    "peak_int8": {
+     "v": 750000000000000.0,
+     "st": "spec",
+     "src": "groqchip-brief",
+     "ref": "Up to 750 TOPs (INT8 @900 MHz)"
+    },
+    "sram_bytes": {
+     "v": 230000000.0,
+     "st": "spec",
+     "src": "groqchip-brief",
+     "ref": "230 MB SRAM per chip"
+    },
+    "sram_bw": {
+     "v": 80000000000000.0,
+     "st": "spec",
+     "src": "groqchip-brief",
+     "ref": "Up to 80 TB/s on-die memory bandwidth"
+    },
+    "off_bytes": {
+     "v": 0,
+     "st": "spec",
+     "src": "groqchip-brief",
+     "ref": "'without the need for external memory'"
+    },
+    "off_bw": {
+     "v": 0,
+     "st": "spec",
+     "src": "groqchip-brief",
+     "ref": "no external memory"
+    },
+    "c2c_links": {
+     "v": 16,
+     "st": "spec",
+     "src": "groqchip-brief",
+     "ref": "16 integrated RealScale chip-to-chip interconnects"
+    },
+    "link_bps": {
+     "v": 100000000000.0,
+     "st": "spec",
+     "src": "groq-isca22",
+     "ref": "links run at 25 Gbps per lane, 'a combined bandwidth of 100 Gbps across the four lanes in a link'"
+    },
+    "c2c_bidir": {
+     "v": 400000000000.0,
+     "st": "derived",
+     "src": "groq-isca22",
+     "ref": "16 links x 100 Gb/s per direction = 1.6 Tb/s = 200 GB/s each way, 400 GB/s both ways"
+    },
+    "hop_s": {
+     "v": 7.22e-07,
+     "st": "spec",
+     "src": "groq-isca22",
+     "ref": "'a pipelined network latency of 722 ns per hop'"
+    },
+    "node_chips": {
+     "v": 8,
+     "st": "spec",
+     "src": "groq-isca22",
+     "ref": "a 4U node houses eight TSPs, fully connected by 7 local links each"
+    },
+    "power_w": {
+     "v": 215,
+     "st": "spec",
+     "src": "groqchip-brief",
+     "ref": "Power Max: 300W; TDP: 215W; Average: 185W (TDP used)"
+    },
+    "clock_hz": {
+     "v": 900000000.0,
+     "st": "spec",
+     "src": "groqchip-brief",
+     "ref": "@900 MHz"
+    },
+    "process": {
+     "v": "14 nm",
+     "st": "spec",
+     "src": "groqchip-brief",
+     "ref": "Process Node 14nm"
+    }
+   }
+  },
+  {
+   "id": "groq3",
+   "name": "NVIDIA Groq 3 LPU (LPX rack)",
+   "family": "lpu",
+   "layout": "pipeline",
+   "avail": {
+    "v": "announced",
+    "st": "spec",
+    "src": "groq-home",
+    "ref": "'When released, each NVIDIA Groq 3 LPX rack connects 256 next-generation LPU accelerators'"
+   },
+   "fields": {
+    "peak_bf16": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "lpx-page",
+     "ref": "not given in the sources used"
+    },
+    "peak_fp8": {
+     "v": 1230468750000000.0,
+     "st": "derived",
+     "src": "groq-home",
+     "ref": "315 PFLOPS of FP8 inference compute per rack of 256 LPUs (dense or sparse not stated)"
+    },
+    "peak_int8": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "lpx-page",
+     "ref": "not given in the sources used"
+    },
+    "sram_bytes": {
+     "v": 500000000.0,
+     "st": "spec",
+     "src": "lpx-page",
+     "ref": "Each LPU accelerator delivers 500 megabytes (MB) of SRAM"
+    },
+    "sram_bw": {
+     "v": 150000000000000.0,
+     "st": "spec",
+     "src": "lpx-page",
+     "ref": "150 terabytes per second (TB/s) of SRAM bandwidth"
+    },
+    "off_bytes": {
+     "v": 0,
+     "st": "spec",
+     "src": "lpx-page",
+     "ref": "SRAM on the LPU; the rack adds 12 TB of DDR5 'for large models and workloads'"
+    },
+    "off_bw": {
+     "v": 0,
+     "st": "spec",
+     "src": "lpx-page",
+     "ref": "no memory on the LPU besides SRAM"
+    },
+    "c2c_bidir": {
+     "v": 2500000000000.0,
+     "st": "spec",
+     "src": "lpx-page",
+     "ref": "2.5 TB/s scale-up bandwidth (direction not stated; taken as both directions)"
+    },
+    "hop_s": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "lpx-page",
+     "ref": "chip-to-chip latency not given in the sources used"
+    },
+    "power_w": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "lpx-page",
+     "ref": "power not given in the sources used"
+    },
+    "rack_chips": {
+     "v": 256,
+     "st": "spec",
+     "src": "lpx-page",
+     "ref": "256 LPU chips per rack"
+    }
+   }
+  }
+ ],
+ "models": [
+  {
+   "id": "llama3-8b",
+   "name": "Llama 3.1 8B",
+   "src": "llama3",
+   "layers": 32,
+   "d": 4096,
+   "ffn": 14336,
+   "heads": 32,
+   "kv_heads": 8,
+   "vocab": 128000
+  },
+  {
+   "id": "llama3-70b",
+   "name": "Llama 3.1 70B",
+   "src": "llama3",
+   "layers": 80,
+   "d": 8192,
+   "ffn": 28672,
+   "heads": 64,
+   "kv_heads": 8,
+   "vocab": 128000
+  },
+  {
+   "id": "llama2-70b",
+   "name": "Llama 2 70B",
+   "src": "llama2",
+   "layers": 80,
+   "d": 8192,
+   "ffn": 28672,
+   "heads": 64,
+   "kv_heads": 8,
+   "vocab": 32000
+  }
+ ],
+ "formats": {
+  "bf16": 2.0,
+  "fp8": 1.0,
+  "int8": 1.0
+ },
+ "published": {
+  "mlperf-h100": {
+   "v": 21805.8,
+   "st": "spec",
+   "src": "mlperf-h100",
+   "ref": "Offline 'Tokens per second: 21805.8' (8x H100 SXM, Llama 2 70B, 99.9% accuracy target; NVIDIA's blog: TensorRT-LLM with FP8 quantization)",
+   "also": [
+    "nv-mlperf-v40"
+   ]
+  },
+  "mlperf-tokens-per-sample": {
+   "v": 294.45,
+   "st": "spec",
+   "src": "mlperf-llama2",
+   "ref": "Tokens per sample: 294.45 (output tokens)"
+  },
+  "cerebras-70b-systems": {
+   "v": 4,
+   "st": "spec",
+   "src": "cerebras-inference",
+   "ref": "'70B models fit on as few as four systems' (16-bit weights)"
+  },
+  "cerebras-20b-one": {
+   "v": 1,
+   "st": "spec",
+   "src": "cerebras-inference",
+   "ref": "'20B models fit on a single CS-3'"
+  },
+  "cerebras-8b-tps": {
+   "v": 1800,
+   "st": "spec",
+   "src": "cerebras-inference",
+   "ref": "'1,800 tokens per second for Llama3.1 8B' (16-bit weights)"
+  },
+  "cerebras-70b-tps": {
+   "v": 450,
+   "st": "spec",
+   "src": "cerebras-inference",
+   "ref": "'450 tokens per second for Llama3.1 70B' (16-bit weights)"
+  },
+  "groq-70b-chips": {
+   "v": 576,
+   "st": "reported",
+   "src": "nextplatform-groq",
+   "ref": "'Groq linked together 576 of its GroqChips' for Llama 2 70B, INT8"
+  },
+  "groq-70b-tps": {
+   "v": 300,
+   "st": "reported",
+   "src": "nextplatform-groq",
+   "ref": "'the Groq setup with 576 chips was able to push above 300 tokens per second'"
+  }
+ },
+ "claims": {
+  "cs4-30x": {
+   "text": "CS-4 'delivers up to 30x faster inference compared to GPU systems'",
+   "src": "cs4-page"
+  },
+  "cs4-1000": {
+   "text": "CS-4 'delivers more than 1,000 tokens per second on models exceeding 50 trillion parameters' (the page; the datasheet says 10 trillion)",
+   "src": "cs4-page"
+  },
+  "cerebras-20x": {
+   "text": "Cerebras Inference 'runs Llama3.1 20x faster than GPU solutions at 1/3 the power of DGX solutions'",
+   "src": "cerebras-inference"
+  },
+  "lpx-1000": {
+   "text": "an LPX rack: '1,000 tokens/sec/user'",
+   "src": "groq-home"
+  },
+  "cerebras-sparse-10x": {
+   "text": "Cerebras cores reach 'as high as 10x more utilization than GPUs on unstructured, sparse compute'",
+   "src": "cerebras-wp"
+  }
+ },
+ "illustrative": {
+  "d0_per_cm2": {
+   "v": 0.1,
+   "st": "illustrative",
+   "src": "cerebras-wp",
+   "ref": "defect density for chapter 4's yield picture: a round number for a mature process, not a TSMC figure (TSMC does not publish one for N5)"
+  },
+  "gpu_die_mm2": {
+   "v": 814,
+   "st": "illustrative",
+   "src": "hopper-blog",
+   "ref": "a reticle-sized die for comparison (H100's GH100 is 814 mm2 per NVIDIA's Hopper blog)"
+  },
+  "spare_frac": {
+   "v": 0.015,
+   "st": "illustrative",
+   "src": "cerebras-wp",
+   "ref": "share of cores held as spares; Cerebras says it has 'redundant compute cores' but not how many"
+  }
+ },
+ "mapParts": {
+  "gpu": [
+   "h100",
+   "fp8"
+  ],
+  "systolic": [
+   "tpu-7x",
+   "fp8"
+  ],
+  "wafer": [
+   "wse-3",
+   "bf16"
+  ],
+  "lpu": [
+   "groqchip",
+   "int8"
+  ]
+ },
+ "batches": [
+  1,
+  2,
+  4,
+  8,
+  16,
+  32,
+  64,
+  128,
+  256,
+  512,
+  1024,
+  2048
+ ],
+ "dieCols": 12,
+ "dieRows": 7,
+ "chainCases": [
+  {
+   "key": "demo",
+   "part": "groqchip",
+   "model": "llama2-70b",
+   "fmt": "int8",
+   "chips": 576,
+   "group": 8
+  },
+  {
+   "key": "fewest-nodes",
+   "part": "groqchip",
+   "model": "llama2-70b",
+   "fmt": "int8",
+   "chips": 304,
+   "group": 8
+  },
+  {
+   "key": "fewest-chain",
+   "part": "groqchip",
+   "model": "llama2-70b",
+   "fmt": "int8",
+   "chips": 0,
+   "group": 1
+  },
+  {
+   "key": "groq3",
+   "part": "groq3",
+   "model": "llama3-70b",
+   "fmt": "fp8",
+   "chips": 0,
+   "group": 1
+  }
+ ],
+ "chainCtx": 1024,
+ "groqCtx": 1024,
+ "cerebrasCtx": 1024
+}

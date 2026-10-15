@@ -1,0 +1,70 @@
+<ChainWidget>
+  <Eq
+    label="A token's time through a chain is the weights over one stage's SRAM bandwidth, plus the hops between stages and the all-reduces inside them, each one hop of latency"
+    tex="t_{\text{token}} = \frac{\htmlClass{hl-sram}{W}}{\htmlClass{hl-stage}{g} \cdot \htmlClass{hl-sram}{\beta_{\text{SRAM}}}} + \htmlClass{hl-hop}{\left( (S - 1) + 2L \cdot [g > 1] \right) t_{\text{hop}}}"
+  />
+</ChainWidget>
+
+<Layer kind="concept">
+
+The fifth family removes the last things a chip decides for itself. Groq's first LPU, the GroqChip, has no caches and no DRAM: <V of="part.groqchip.sram_bytes" fmt="bytes" /> of SRAM read at up to <V of="part.groqchip.sram_bw" fmt="rate" />, wide functional slices for matrix and vector work at <V of="part.groqchip.peak_int8" fmt="int" /> INT8 operations per second, and <V of="part.groqchip.c2c_links" fmt="int" /> chip-to-chip links. Its compiler writes a **static schedule**: every instruction, every memory read and every transfer between chips happens on a cycle chosen before the program runs. Groq's ISCA 2022 paper describes "statically scheduled, deterministic execution" across many chips, kept in step by exchanging hardware counters over the links, so that even the network's transfers are scheduled and avoid contention.
+
+That buys two things. A step takes exactly as long every time, so latency has no tail. And nothing is spent guessing: there are no cache misses, because there is no cache, and no arbitration, because the compiler already did it.
+
+The price is capacity. A model must fit in SRAM, so it is cut at layer boundaries into **stages** spread over many chips, and a token runs down the chain. Llama 2 70B in INT8 needs at least <V of="placement(groqchip,llama2-70b,int8,1,1024).chips" fmt="int" /> GroqChips just to hold its weights and one KV cache; Groq's 2023 demonstration used <V of="pub.groq-70b-chips" fmt="int" />, in nodes of <V of="part.groqchip.node_chips" fmt="int" />. The animation sends one token down that chain. Each stage's eight chips share its layers, so each reads only its slice of the weights: <V of="decode(groqchip,llama2-70b,int8,1,1024,576,8).t_mem" fmt="time" /> of SRAM reads for the whole token. Sharing costs latency: every layer's all-reduce inside a node and every hand-on between nodes is one hop of <V of="part.groqchip.hop_s" fmt="time" />, and those add up to <V of="decode(groqchip,llama2-70b,int8,1,1024,576,8).t_hops" fmt="time" />. The bound is <V of="decode(groqchip,llama2-70b,int8,1,1024,576,8).t_step" fmt="time" /> per token, <V of="decode(groqchip,llama2-70b,int8,1,1024,576,8).tok_s_user" fmt="num" /> tokens per second for one user. With one chip per stage instead, there are fewer hops but each chip reads its share alone: <V of="decode(groqchip,llama2-70b,int8,1,1024,0,1).t_step" fmt="time" />.
+
+</Layer>
+
+<PartTable
+  ids="groqchip,groq3"
+  fields="peak_fp16,peak_fp8,peak_int8,sram_bytes,sram_bw,off_bytes,c2c_bidir,hop_s,power_w,process"
+/>
+
+## What the demonstration reached, and what it cost
+
+Groq's chain served one user at above <V of="pub.groq-70b-tps" fmt="int" /> tokens per second, as reported by The Next Platform from Groq's demonstration: <V of="val.groq-70b-tps.ratio" fmt="pct" /> of the model's bound. As with the wafer, the bandwidth bound is not what limits a chain of SRAM chips; the published speed implies about <V of="overhead.groq-70b-tps.per_layer" fmt="time" /> per layer beyond it, which the sources do not break down. What the model does capture is the trade: <V of="pub.groq-70b-chips" fmt="int" /> chips, each with a <V of="part.groqchip.power_w" fmt="watts" /> TDP, for one copy of a 70B model whose INT8 weights fit in one H100's HBM. With the pipeline full, one sequence per stage, that is <V of="decode(groqchip,llama2-70b,int8,1,1024,576,8).j_per_token" fmt="num" /> J per token at the bound.
+
+The next generation is announced, not shipping. NVIDIA's Groq 3 LPU has <V of="part.groq3.sram_bytes" fmt="bytes" /> of SRAM at <V of="part.groq3.sram_bw" fmt="rate" />, <V of="part.groq3.rack_chips" fmt="int" /> to a rack, so Llama 3.1 70B in FP8 fits in <V of="lpuCapacity(groq3,llama3-70b,fp8,1024).chips" fmt="int" /> chips of one rack, with a bound of <V of="decode(groq3,llama3-70b,fp8,1,1024).tok_s_user" fmt="num" /> tokens per second for one user before any hop latency, which NVIDIA does not state. NVIDIA positions the LPX rack beside Vera Rubin GPUs, with GPUs and LPUs "jointly computing every layer of the AI model for every output token": the GPU's HBM for capacity and the LPU's SRAM for speed. Groq's own page claims "1,000 tokens/sec/user" for an LPX rack; it is quoted, not used.
+
+<DecodeTable cases="groqchip:llama2-70b:int8:1:1024:576:8 groqchip:llama2-70b:int8:1:1024:304:8 groqchip:llama2-70b:int8:1:1024 groq3:llama3-70b:fp8:1:1024 h100:llama2-70b:int8:1:1024" />
+
+<Callout kind="illustrative">
+
+The model spreads the layers evenly over the stages and charges one hop of the paper's 722 ns for every hand-on and for every all-reduce inside a stage; the paper measured that latency on its Dragonfly network, and a real compiler overlaps some of it. The GroqChip's 2023 demonstration and its 576 chips are reported by a trade publication from Groq's demonstration, not published by Groq in a paper; the first-generation chip is retired. Groq 3 figures are from the announcement and its hop latency is not disclosed, so its chain is drawn with no hop time.
+
+</Callout>
+
+<Layer kind="maths">
+
+With $W$ bytes of weights cut into $S$ stages of $g$ chips each, SRAM bandwidth $\beta$ per chip, $L$ layers and hop latency $t_{\text{hop}}$, one token takes
+
+$$
+t_{\text{token}} = \sum_{s=1}^{S} \frac{W / S}{g\,\beta} + (S - 1)\, t_{\text{hop}} + [g > 1] \cdot 2L \, t_{\text{hop}}
+= \frac{W}{g\,\beta} + \left( S - 1 + 2L\,[g > 1] \right) t_{\text{hop}}.
+$$
+
+More chips per stage divide the reading time by $g$ but add $2L$ all-reduce hops; more stages leave the reading time alone and add hops. Throughput is different: with one sequence in every stage, the chain finishes $S$ tokens per $t_{\text{token}}$.
+
+</Layer>
+
+<Layer kind="code">
+
+One token down the chain, cut from [`src/lib/accel/model.ts`](https://github.com/BrendanJamesLynskey/ai-accelerators-explained/blob/main/src/lib/accel/model.ts):
+
+```ts
+for (let k = 0; k < st; k++) {
+  const start = t;
+  t = t + stageWork + stageReduce;
+  const done = t;
+  if (k < st - 1) t = t + hop;
+```
+
+</Layer>
+
+<Callout kind="deeper">
+
+- Lowering a graph onto one array, ahead of time: [Systolic Arrays Explained, chapter 9](https://systolic-arrays-explained.vercel.app/learn/09-graph-to-silicon); INT8 weights and what they cost in accuracy: [Numerics Explained, chapter 5](https://numerics-explained.vercel.app/learn/05-quantisation-basics); pipeline and tensor parallelism on GPUs: [Serving, chapter 9](https://llm-inference-explained.vercel.app/learn/09-parallelism); GPUs and other parts in separate pools: [AI Racks Explained, chapter 8](https://ai-racks-explained.vercel.app/learn/08-disaggregated-inference).
+- Google TPU series, for the other compiler-first design: [compilation, AOT graph vs JIT kernel](https://brendanjameslynskey.github.io/Google_TPU_12_TPU_vs_GPU/#slide-05).
+- Abts et al., [A software-defined tensor streaming multiprocessor for large-scale machine learning](https://web.archive.org/web/20250612160012/https://groq.com/wp-content/uploads/2024/02/GroqISCAPaper2022_ASoftwareDefinedTensorStreamingMultiprocessorForLargeScaleMachineLearning-1.pdf), ISCA 2022; Groq, [GroqChip product brief](https://web.archive.org/web/20250615145238/https://groq.com/wp-content/uploads/2022/10/GroqChip%E2%84%A2-Processor-Product-Brief-v1.5.pdf); NVIDIA, [Groq 3 LPX](https://www.nvidia.com/en-us/data-center/lpx/); The Next Platform, [Groq's Llama 2 70B demonstration](https://www.nextplatform.com/2023/11/27/groq-says-it-can-deploy-1-million-ai-inference-chips-in-two-years/).
+
+</Callout>

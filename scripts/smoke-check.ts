@@ -1,0 +1,129 @@
+/**
+ * scripts/smoke-check.ts
+ *
+ * Post-deploy smoke check, adapted from the companion sites'. Fetches every
+ * page and exits non-zero if any fails:
+ *
+ *     pnpm smoke https://ai-accelerators-explained.vercel.app
+ *
+ * With no argument it checks http://localhost:3000. For a protected
+ * preview deployment, pass the bypass token as VERCEL_BYPASS (sent as the
+ * `x-vercel-protection-bypass` header; never printed).
+ *
+ * Fails when a page is not a 200 (redirects count as failures) or lacks
+ * the content that proves it rendered from the model: the landing page,
+ * /specs and /about must print the model's own numbers (computed here with
+ * the same code), every chapter must render its MDX (a layer, server-
+ * rendered KaTeX and the animation's placeholder), and the header must carry
+ * the four-track site switch, relabelled for this site until brief 37C adds
+ * Accelerators to it.
+ */
+import { formatValue, lookup } from "@/lib/accel/values";
+import { SECTIONS } from "@/lib/mdx/sections";
+
+/** The author credit: the last line of the About page (brief 35). */
+const CREDIT = [
+  'data-author-credit="true">Built by',
+  'href="https://github.com/BrendanJamesLynskey">Brendan Lynskey</a>',
+];
+
+type Result = { path: string; ok: boolean; detail: string };
+
+const headers: Record<string, string> = process.env.VERCEL_BYPASS
+  ? { "x-vercel-protection-bypass": process.env.VERCEL_BYPASS }
+  : {};
+
+const SWITCH = [
+  'data-site-switch="menu"',
+  'href="https://transformer-training-explained.vercel.app"',
+  'href="https://gpu-kernels-explained.vercel.app"',
+  'href="https://agent-harnesses-explained.vercel.app"',
+  'href="https://agent-protocols-explained.vercel.app"',
+  'href="https://agent-context-explained.vercel.app"',
+  'href="https://agent-orchestration-explained.vercel.app"',
+  'href="https://agent-evals-explained.vercel.app"',
+  'href="https://agent-security-explained.vercel.app"',
+  'data-site-group="foundations"',
+  'data-site-group="hardware"',
+  'href="https://ai-racks-explained.vercel.app"',
+  'href="https://systolic-arrays-explained.vercel.app"',
+  "data-switch-prelaunch",
+  'data-site-place="accelerators"',
+  'data-site-brand="true" class="focus-ring whitespace-nowrap rounded text-sm font-medium tracking-tight" href="/">AI Accelerators Explained</a>',
+  'data-site-key="inference"',
+];
+
+async function checkPage(
+  base: string,
+  path: string,
+  mustContain: string[],
+): Promise<Result> {
+  try {
+    const res = await fetch(base + path, { redirect: "manual", headers });
+    if (res.status !== 200)
+      return { path, ok: false, detail: String(res.status) };
+    const html = await res.text();
+    const missing = mustContain.filter((s) => !html.includes(s));
+    if (missing.length)
+      return {
+        path,
+        ok: false,
+        detail: `200 but missing ${missing.join(", ")}`,
+      };
+    return { path, ok: true, detail: "200" };
+  } catch (err) {
+    return { path, ok: false, detail: (err as Error).message };
+  }
+}
+
+async function main(): Promise<void> {
+  const base = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
+  const checks: Promise<Result>[] = [
+    checkPage(base, "/", [
+      "AI Accelerators Explained",
+      formatValue(lookup("part.wse-3.sram_bw"), "rate"),
+      formatValue(lookup("part.h100.off_bw"), "rate"),
+      "data-coming",
+      ...SWITCH,
+    ]),
+    checkPage(base, "/specs", [
+      'data-status="spec"',
+      'data-status="derived"',
+      'data-status="reported"',
+      'data-status="undisclosed"',
+      formatValue(lookup("part.groq3.sram_bw"), "rate"),
+      "2026-10-15",
+    ]),
+    checkPage(base, "/about", [
+      ...CREDIT,
+      "Validation band",
+      'data-check="cerebras-70b-wafers"',
+      'data-check="mlperf-h100"',
+    ]),
+    checkPage(
+      base,
+      "/learn",
+      SECTIONS.map((x) => x.slug),
+    ),
+    ...SECTIONS.map((x) =>
+      checkPage(base, `/learn/${x.slug}`, [
+        'data-layer="concept"',
+        "data-pending-widget",
+        'class="katex"',
+        ...SWITCH,
+      ]),
+    ),
+  ];
+  const results = await Promise.all(checks);
+  let failed = 0;
+  for (const r of results) {
+    if (!r.ok) failed++;
+    console.log(`${r.ok ? "ok  " : "FAIL"} ${r.path} ${r.detail}`);
+  }
+  console.log(
+    `${results.length - failed}/${results.length} checks passed against ${base}`,
+  );
+  if (failed) process.exit(1);
+}
+
+void main();
