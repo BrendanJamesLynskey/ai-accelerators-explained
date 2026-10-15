@@ -76,7 +76,7 @@ test("the site switch: four tracks, the brand names the site, and the button say
     ]);
     expect(pseudo).toEqual(['"Hardware"', '" › Accelerators"']);
     await expect(menu.locator("summary")).toHaveAccessibleName(
-      /^Hardware\W+Accelerators\W*$/,
+      /^Hardware › Accelerators\b/,
     );
     // the switch's own place text is hidden
     await expect(place.locator("span").first()).toBeHidden();

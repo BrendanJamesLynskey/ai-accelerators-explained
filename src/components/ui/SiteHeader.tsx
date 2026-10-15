@@ -10,13 +10,14 @@
  * byte-identical on every site and has no entry for this site yet), the brand
  * comes from `SITE_NAME` and the switch is rendered for an unknown key, which
  * highlights no site; `data-switch-prelaunch` relabels its button "Hardware ›
- * Accelerators" (globals.css). 37C replaces this with `nameOf("accelerators")`
+ * Accelerators" (globals.css), and `PrelaunchLabel` gives it that name. 37C replaces this with `nameOf("accelerators")`
  * and `current="accelerators"`, like every other site.
  */
 import Link from "next/link";
 
 import { SITE_NAME, SITE_TITLE } from "@/lib/site";
 
+import { PrelaunchLabel } from "./PrelaunchLabel";
 import { SiteSwitch, type SiteKey } from "./SiteSwitch";
 
 /** Not a key of the switch yet (see above): no entry is highlighted. */
@@ -56,6 +57,7 @@ export function SiteHeader(): JSX.Element {
           <span data-switch-prelaunch className="contents">
             <SiteSwitch current={PRELAUNCH_KEY} />
           </span>
+          <PrelaunchLabel />
         </nav>
       </div>
     </header>
