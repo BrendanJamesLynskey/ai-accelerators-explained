@@ -1,0 +1,72 @@
+<WaferWidget>
+  <Eq
+    label="Expected defects are the defect density times the area; a chip that must be perfect works with probability e to the minus that"
+    tex="\htmlClass{hl-lam}{\lambda = D_0 \cdot A}, \qquad Y_{\text{perfect}} = e^{-\lambda}, \qquad \htmlClass{hl-die}{Y_{\text{die}} = e^{-D_0 A_{\text{die}}}}"
+  />
+</WaferWidget>
+
+<Layer kind="concept">
+
+A wafer-scale engine skips the step every other chip takes: cutting the wafer into dies. Cerebras's WSE-3 is the largest square that fits on a 300 mm wafer, <V of="part.wse-3.area_mm2" fmt="int" /> mm² of silicon with <V of="part.wse-3.transistors" fmt="int" /> transistors, <V of="part.wse-3.units" fmt="int" /> cores and <V of="part.wse-3.sram_bytes" fmt="bytes" /> of SRAM, all on one piece. Cerebras builds it from <V of="part.wse-3.dies" fmt="int" /> ordinary dies and keeps them joined: its fabric crosses the scribe lines between them, so the 2-D mesh of cores runs edge to edge.
+
+Why nobody else does this is the animation's subject. Defects land on a wafer at random, a density $D_0$ per unit area. A reticle-sized die of <V of="ill.gpu_die_mm2" fmt="int" /> mm² at the illustrative <V of="ill.d0_per_cm2" fmt="num" /> per cm² expects <V of="waferYield(wse-3,0.1,814,0.015).lam_die" fmt="num" /> defects and works only <V of="waferYield(wse-3,0.1,814,0.015).die_yield" fmt="pct" /> of the time; a whole wafer expects <V of="waferYield(wse-3,0.1,814,0.015).lam_wafer" fmt="num" />, and would essentially never be perfect. Cerebras's answer is to make the defects small and survivable: each core is about <V of="part.wse-3.core_um2" fmt="int" /> µm², so a defect kills one core out of <V of="part.wse-3.units" fmt="int" />, and the design has "redundant compute cores, redundant routing, and a fail-in-place architecture that shuts flaws down and routes around them". With even an illustrative <V of="ill.spare_frac" fmt="pct" /> of cores held back, there are <V of="waferYield(wse-3,0.1,814,0.015).spare_margin" fmt="num" /> spares for every defect expected.
+
+</Layer>
+
+## Weights in SRAM, split across wafers
+
+The prize is memory bandwidth. Each core has <V of="part.wse-3.core_sram" fmt="bytes" /> of SRAM next to its datapath, and together they are read at <V of="part.wse-3.sram_bw" fmt="rate" />, against an H100's <V of="part.h100.off_bw" fmt="rate" /> of HBM. The cost is capacity: <V of="part.wse-3.sram_bytes" fmt="bytes" /> per wafer. Llama 3.1 8B in 16 bits fits on one wafer; the 70B model, at <V of="wafersNeeded(wse-3,llama3-70b,bf16,1,1024).need" fmt="bytes" /> with its KV cache, needs <V of="wafersNeeded(wse-3,llama3-70b,bf16,1,1024).wafers" fmt="int" />. Cerebras's inference service does exactly that: "we split them at layer boundaries and map them to multiple CS-3 systems", and "70B models fit on as few as four systems". The model's count matches.
+
+For training Cerebras uses the other answer, **weight streaming**: the weights stay in an external MemoryX unit and stream onto the wafer one layer at a time, each weight applied to a whole batch of activations held on the wafer. That suits training's huge batches, and not one user's decode: streaming 70B 16-bit weights once over a CS-3's <V of="part.wse-3.io_bps" fmt="bits" /> of I/O takes <V of="wafersNeeded(wse-3,llama3-70b,bf16,1,1024).t_stream" fmt="time" />, about one token a second.
+
+<PartTable
+  ids="wse-3,wse-3t"
+  fields="peak_fp16_sparse,peak_bf16,sram_bytes,sram_bw,off_bytes,io_bps,hop_s,units,area_mm2,redundancy,power_w"
+/>
+
+The CS-4, announced with three WSE-3 Turbo wafers per system and first shipments "this quarter" on the access date, doubles the bandwidth to <V of="part.wse-3t.sram_bw" fmt="rate" /> per wafer and gives a wafer-to-wafer latency of <V of="part.wse-3t.hop_s" fmt="time" />. Cerebras gives its compute only as a sparse FP16 figure. Where the model needs a compute rate for a wafer it uses that figure and marks the result "sparse", so a compute term from it is a floor: the WSE-3's dense rate is its 900,000 cores times eight FP16 lanes each times a clock Cerebras does not state.
+
+## What the bound says, and what it leaves out
+
+The model's bound for decode on SRAM is tiny: reading 70B 16-bit weights at <V of="part.wse-3.sram_bw" fmt="rate" /> takes <V of="decode(wse-3,llama3-70b,bf16,1,1024).t_step" fmt="time" />, a ceiling of <V of="decode(wse-3,llama3-70b,bf16,1,1024).tok_s_user" fmt="num" /> tokens per second. Cerebras published <V of="pub.cerebras-70b-tps" fmt="num" />, which is <V of="val.cerebras-70b-tps.ratio" fmt="pct" /> of it. The gap is the point: once the weights are in SRAM, bandwidth stops being the limit. What is left is most plausibly latency: every layer waits for the one before it, and its partial sums travel across a mesh of hundreds of thousands of cores. The published speed implies about <V of="overhead.cerebras-70b-tps.per_layer" fmt="time" /> per layer beyond the bandwidth bound (<V of="overhead.cerebras-8b-tps.per_layer" fmt="time" /> for the 8B model), which the model does not try to explain: the clock, the mesh dimensions and the per-layer schedule are not disclosed.
+
+<ValidationTable kinds="capacity,latency" />
+
+<Callout kind="illustrative">
+
+The defect density, the share of spare cores and the 12 × 7 layout of the 84 dies are illustrative: TSMC publishes no defect density for this process, and Cerebras gives the number of dies and says it has redundant cores, but not how many or where. The yield formula is the simplest (Poisson) model. Cerebras's speed claims (such as "up to 30x faster inference compared to GPU systems" for the CS-4) are quoted on [the specifications page](/specs#claims) and never used as model inputs.
+
+</Callout>
+
+<Layer kind="maths">
+
+With defects scattered at random at density $D_0$, the number on an area $A$ is Poisson with mean $\lambda = D_0 A$, and the chance of none is $e^{-\lambda}$:
+
+$$
+Y_{\text{die}} = e^{-D_0 A_{\text{die}}}, \qquad
+Y_{\text{wafer, perfect}} = e^{-D_0 A_{\text{wafer}}}, \qquad
+\text{cores lost} \approx \lambda .
+$$
+
+A wafer with $s$ spare cores survives as long as $\lambda \ll s$; at the values above, $s / \lambda$ is <V of="waferYield(wse-3,0.1,814,0.015).spare_margin" fmt="num" />. The decode bound across $w$ wafers in a pipeline is the weights over one wafer's bandwidth (each wafer reads its share in turn), plus $w - 1$ hops.
+
+</Layer>
+
+<Layer kind="code">
+
+The yield comparison, cut from [`src/lib/accel/model.ts`](https://github.com/BrendanJamesLynskey/ai-accelerators-explained/blob/main/src/lib/accel/model.ts):
+
+```ts
+const lamWafer = (d0PerCm2 * area) / 100;
+const lamDie = (d0PerCm2 * dieMm2) / 100;
+const spares = Math.floor(cores * spareFrac);
+```
+
+</Layer>
+
+<Callout kind="deeper">
+
+- SRAM next to the datapath versus HBM across a package: [GPU Kernels Explained, chapter 1](https://gpu-kernels-explained.vercel.app/learn/01-memory-hierarchy) and [AI Racks Explained, chapter 2](https://ai-racks-explained.vercel.app/learn/02-the-package); the roofline the wafer escapes: [GPU Kernels Explained, chapter 2](https://gpu-kernels-explained.vercel.app/learn/02-roofline); data moving one hop at a time through an array of small processors: [Systolic Arrays Explained, chapter 8](https://systolic-arrays-explained.vercel.app/learn/08-other-ways); 16-bit weights against 8-bit: [Numerics Explained, chapter 5](https://numerics-explained.vercel.app/learn/05-quantisation-basics).
+- Cerebras, [WSE-3 Turbo chip page](https://www.cerebras.ai/chip) (the yield problem), [The Cerebras wafer-scale architecture for deep learning](https://cdn.sanity.io/files/e4qjo92p/production/2d7fa58e3b820715664bcf42097e86c05070c161.pdf) (white paper), the [CS-3 and WSE-3 datasheet](https://cdn.sanity.io/files/e4qjo92p/production/864133620041e5af418074842e42a669c137fa23.pdf), the [CS-4 datasheet](https://cdn.sanity.io/files/e4qjo92p/production/bb028ae2422089dfbcc9fd2455c021f3625c7a75.pdf) and [Introducing Cerebras Inference](https://www.cerebras.ai/blog/introducing-cerebras-inference-ai-at-instant-speed).
+
+</Callout>

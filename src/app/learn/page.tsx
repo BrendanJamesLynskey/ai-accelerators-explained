@@ -1,0 +1,81 @@
+/**
+ * /learn — index of chapters.
+ *
+ * Server Component, statically rendered. Same layout as the companion
+ * sites' /learn, plus the chapters still to come.
+ */
+import Link from "next/link";
+
+import { COMING, SECTIONS } from "@/lib/mdx/sections";
+import { GOOGLE_TPU_HUB, KERNELS_URL, NVIDIA_GPU_HUB } from "@/lib/site";
+
+export const metadata = {
+  title: "Learn",
+  description:
+    "Chapters on the families of AI chips, each running the same decoder layer and built around an animation driven by a tested model.",
+};
+
+const A =
+  "focus-ring rounded text-accent underline underline-offset-2 dark:text-indigo-300";
+
+export default function LearnIndex(): JSX.Element {
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <p className="font-mono text-xs uppercase tracking-widest text-accent dark:text-indigo-300">
+        /learn
+      </p>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+        The families of AI silicon
+      </h1>
+      <p className="mt-4 text-neutral-600 dark:text-neutral-300">
+        One chapter per family of chips, each opening with an animation. Every
+        frame is computed by this site&apos;s model (checked against its Python
+        reference), and every specification links its source. Toggle layers
+        (Concept / Maths / Code) inside any chapter to choose how deep to go.
+        What happens inside one GPU is on{" "}
+        <a href={KERNELS_URL} className={A}>
+          GPU Kernels Explained
+        </a>
+        ; for slides on the same hardware, see the{" "}
+        <a href={NVIDIA_GPU_HUB} className={A}>
+          NVIDIA GPU
+        </a>{" "}
+        and{" "}
+        <a href={GOOGLE_TPU_HUB} className={A}>
+          Google TPU
+        </a>{" "}
+        series.
+      </p>
+
+      <ol className="mt-10 divide-y divide-neutral-200 dark:divide-neutral-800">
+        {SECTIONS.map((s, i) => (
+          <li key={s.slug} className="py-5">
+            <div className="flex items-baseline gap-3">
+              <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <Link
+                href={`/learn/${s.slug}`}
+                className="focus-ring rounded text-lg font-medium text-neutral-900 hover:text-accent dark:text-neutral-100"
+              >
+                {s.title}
+              </Link>
+            </div>
+            <p className="mt-1 pl-9 text-sm text-neutral-600 dark:text-neutral-400">
+              {s.summary}
+            </p>
+          </li>
+        ))}
+      </ol>
+      <h2 className="mt-10 text-sm font-semibold">Coming next</h2>
+      <ul
+        className="mt-2 list-disc pl-5 text-sm text-neutral-600 dark:text-neutral-400"
+        data-coming
+      >
+        {COMING.map((c) => (
+          <li key={c}>{c}</li>
+        ))}
+      </ul>
+    </main>
+  );
+}

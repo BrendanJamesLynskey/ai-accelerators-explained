@@ -1,0 +1,70 @@
+<MxuWidget>
+  <Eq
+    label="Cycles for a matmul on a weight-stationary array: the number of tiles times the larger of the batch rows and the array rows, plus one fill and drain; utilisation is the useful multiply-accumulates over all the array could have done"
+    tex="C = \htmlClass{hl-tiles}{\left\lceil \tfrac{k}{R} \right\rceil \left\lceil \tfrac{n}{R} \right\rceil} \cdot \htmlClass{hl-per}{\max(m, R)} + \htmlClass{hl-fill}{2R - 2}, \qquad U = \frac{m\,k\,n}{R^2\, C}"
+  />
+</MxuWidget>
+
+<Layer kind="concept">
+
+The second family keeps the GPU's memory system (weights in HBM) but builds its matrix engine differently: a few large **systolic arrays** in which each weight sits in one processing element while activations flow past it, so a weight read once from memory is used by every row that streams through. Two shipping lines say so in their own documentation. Google's TPUs: "an MXU is composed of either 256 x 256 (TPU v6e and TPU7x) or 128 x 128 (TPU versions prior to v6e) multiply-accumulators in a systolic array". AWS Trainium: the NeuronCore's "Tensor engines are based on a power-optimized systolic array", organised "as a grid of 128x128 processing elements". How such an array works cycle by cycle is the whole of [Systolic Arrays Explained](https://systolic-arrays-explained.vercel.app/learn/02-weight-stationary); this chapter is about what the design means for the running workload.
+
+The array is a fixed pipeline, so the compiler, not the hardware, plans every transfer: Google's TPUs take their programs through XLA, and VMEM, the on-chip scratchpad in front of the MXUs, is sized and filled by the compiler and by custom kernels rather than by a cache.
+
+The animation runs one 1,024 × 1,024 matmul. Each tile of weights holds the array for $\max(m, R)$ cycles: the $m$ input rows of the batch take $m$ cycles to stream through, and the next tile's $R$ rows of weights take $R$ cycles to shift in behind it. With a batch of 1 the array spends 1 cycle in <V of="mxu(256,256,1,1024,1024).per_tile" fmt="int" /> multiplying, so one decoder layer of the 70B model uses <V of="layerMxu(256,256,llama3-70b,1).util" fmt="pct" /> of a 256 × 256 array. At a batch of 16 it uses <V of="layerMxu(256,256,llama3-70b,16).util" fmt="pct" />; at a batch of 256, <V of="layerMxu(256,256,llama3-70b,256).util" fmt="pct" />. A 128 × 128 array fills at half the batch: <V of="layerMxu(128,128,llama3-70b,128).util" fmt="pct" /> at 128. The big array's lesson for decode is the GPU's, sharpened: it wants a batch at least as tall as itself.
+
+</Layer>
+
+<PartTable
+  ids="tpu-v6e,tpu-7x,trn2"
+  fields="peak_bf16,peak_fp8,off_bytes,off_bw,sram_bytes,c2c_bidir,units,array_rows,power_w"
+/>
+
+## The running workload on systolic chips
+
+Because the weights live in HBM, decode on these chips is bounded the way it is on a GPU: by bytes over bandwidth. TPU7x reads its <V of="part.tpu-7x.off_bytes" fmt="bytes" /> of HBM at <V of="part.tpu-7x.off_bw" fmt="rate" />, so Llama 3.1 70B in FP8 fits on one chip and a batch-1 step is bounded at <V of="decode(tpu-7x,llama3-70b,fp8,1,1024).t_step" fmt="time" />. Trainium2 holds it in <V of="part.trn2.off_bytes" fmt="bytes" /> and reads at <V of="part.trn2.off_bw" fmt="rate" />: <V of="decode(trn2,llama3-70b,fp8,1,1024).t_step" fmt="time" />. TPU v6e has <V of="part.tpu-v6e.off_bytes" fmt="bytes" /> per chip, so the 16-bit model needs <V of="decode(tpu-v6e,llama3-70b,bf16,1,1024).chips" fmt="int" /> chips. The ridge points are GPU-like too: <V of="ridge(tpu-7x,fp8)" fmt="num" /> flops per byte for TPU7x in FP8, <V of="ridge(trn2,fp8)" fmt="num" /> for Trainium2.
+
+<DecodeTable cases="tpu-v6e:llama3-70b:bf16:1:1024 tpu-7x:llama3-70b:fp8:1:1024 tpu-7x:llama3-70b:fp8:256:1024 trn2:llama3-70b:fp8:1:1024 trn2:llama3-70b:fp8:256:1024" />
+
+What differs from a GPU is the machine around the array: one large compiled program instead of many kernels, a scratchpad instead of a cache, and, at scale, the TPU pods' torus of chip-to-chip links ([AI Racks Explained, chapter 10](https://ai-racks-explained.vercel.app/learn/10-other-designs)). Google and AWS do not state their chips' power in the sources used, so this chapter gives no energy per token for them.
+
+<Callout kind="illustrative">
+
+The tile model assumes the next tile's weights load behind the current one at one row per cycle, and charges one fill and drain per matmul; it leaves out the vector unit's work (softmax, normalisation) and the HBM traffic that feeds the tiles. The 1,024 × 1,024 matmul is sized to fit the picture; the per-layer utilisation uses the 70B model's real matrix shapes. Trainium2's interconnect figure is stated without a direction and is shown as given.
+
+</Callout>
+
+<Layer kind="maths">
+
+A weight-stationary array of $R \times R$ processing elements running an $m \times k$ by $k \times n$ matmul works through $\lceil k/R \rceil \lceil n/R \rceil$ tiles. With the next tile's weights shifted in behind the current one, a tile holds the array for $\max(m, R)$ cycles, and the first fill and last drain add $2R - 2$:
+
+$$
+C = \left\lceil \frac{k}{R} \right\rceil \left\lceil \frac{n}{R} \right\rceil \max(m, R) + 2R - 2,
+\qquad
+U = \frac{m k n}{R^2 C} \;\approx\; \frac{\min(m, R)}{R} \text{ for large } k, n.
+$$
+
+So a batch below $R$ uses about $m/R$ of the array, whatever the matrix.
+
+</Layer>
+
+<Layer kind="code">
+
+One matmul on the array, cut from [`src/lib/accel/model.ts`](https://github.com/BrendanJamesLynskey/ai-accelerators-explained/blob/main/src/lib/accel/model.ts):
+
+```ts
+const tiles = Math.ceil(k / rows) * Math.ceil(n / cols);
+const perTile = Math.max(m, rows);
+const cycles = tiles * perTile + rows + cols - 2;
+const macs = m * k * n;
+```
+
+</Layer>
+
+<Callout kind="deeper">
+
+- Inside the array, cycle by cycle: [Systolic Arrays Explained, chapter 2](https://systolic-arrays-explained.vercel.app/learn/02-weight-stationary); tiles loaded behind each other (shadow weights): [chapter 5](https://systolic-arrays-explained.vercel.app/learn/05-tiling); the TPU and its torus: [chapter 7](https://systolic-arrays-explained.vercel.app/learn/07-the-tpu); GPU tensor cores and the other dataflows: [chapter 8](https://systolic-arrays-explained.vercel.app/learn/08-other-ways). TPU pods at rack scale: [AI Racks Explained, chapter 10](https://ai-racks-explained.vercel.app/learn/10-other-designs); the TPU's number formats: [Numerics Explained, chapter 10](https://numerics-explained.vercel.app/learn/10-hardware).
+- Google TPU series: [the TPU's choice, weight-stationary](https://brendanjameslynskey.github.io/Google_TPU_03_Systolic_Arrays/#slide-07), [how a 256×256 array maps a matmul](https://brendanjameslynskey.github.io/Google_TPU_03_Systolic_Arrays/#slide-08), [throughput and utilisation](https://brendanjameslynskey.github.io/Google_TPU_03_Systolic_Arrays/#slide-10), [Ironwood, the inference flagship](https://brendanjameslynskey.github.io/Google_TPU_08_Trillium_Ironwood/#slide-05) and [VMEM, software-managed vector memory](https://brendanjameslynskey.github.io/Google_TPU_09_Memory_and_Numerics/#slide-02).
+- Google Cloud, [TPU architecture](https://cloud.google.com/tpu/docs/system-architecture-tpu-vm), [TPU v6e](https://cloud.google.com/tpu/docs/v6e) and [TPU7x](https://cloud.google.com/tpu/docs/tpu7x); AWS Neuron, [Trainium2](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trainium2.html) and [NeuronCore-v3](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/neuron-core-v3.html).
+
+</Callout>

@@ -1,0 +1,77 @@
+<MapWidget>
+  <Eq
+    label="Chips needed is the ceiling of the weights plus the KV cache, over the memory one chip holds"
+    tex="n_{\text{chips}} = \left\lceil \frac{\htmlClass{hl-need}{P \cdot b + B \cdot T \cdot k_{\text{KV}}}}{\htmlClass{hl-cap}{M_{\text{chip}}}} \right\rceil"
+  />
+</MapWidget>
+
+<Layer kind="concept">
+
+Every AI chip does the same sums: multiply a vector of activations by matrices of weights, again and again, layer after layer. What separates the families is not the arithmetic but three choices around it.
+
+**Where the weights live.** A GPU or a TPU keeps them in off-chip DRAM (HBM) and streams them in for every step. A wafer-scale engine or a Groq-style LPU keeps them in on-chip SRAM, spread across as many chips as it takes to hold them. Dataflow chips and meshes of small cores use both tiers, and in-memory designs compute where the weight is stored.
+
+**Who decides when data moves.** A GPU's hardware schedules warps at run time and its L2 cache decides what stays close. A TPU or an LPU is fed by a compiler that fixed every transfer before the program started. In between, a wafer's cores fire when data arrives over routes the compiler set up.
+
+**How big the engines are.** A few large matrix units (a TPU's arrays), a hundred or so cores (a GPU's SMs, a mesh's Tensix cores), or <V of="part.wse-3.units" fmt="int" /> tiny cores on one wafer.
+
+The map places the eight families on the first two axes, with the third drawn as each marker's grain. The same running workload follows us through every chapter: a Llama decoder generating text. Its prefill (reading a whole prompt at once) is a large matrix multiply; its decode (one new token per step) reads every weight to do two flops with each. So the first question for any chip is the one under the map: where do <V of="shape.llama3-70b.params" fmt="int" /> weights fit? In 8-bit form, with one 1,024-token KV cache, Llama 3.1 70B needs <V of="placement(h100,llama3-70b,fp8,1,1024).need" fmt="bytes" />: one H100 (<V of="part.h100.off_bytes" fmt="bytes" /> of HBM), but <V of="placement(groqchip,llama3-70b,int8,1,1024).chips" fmt="int" /> first-generation LPUs at <V of="part.groqchip.sram_bytes" fmt="bytes" /> of SRAM each. In 16-bit form it needs <V of="placement(wse-3,llama3-70b,bf16,1,1024).chips" fmt="int" /> wafers, which is the number Cerebras published.
+
+</Layer>
+
+<FamilyTable />
+
+## One decoder layer, the running workload
+
+Every chapter runs the same decoder: Llama 3.1 8B and 70B, with the layer shapes Meta's Llama 3 paper gives (its Table 3), and Llama 2 70B where a published result used it. One layer of the 70B model has <V of="shape.llama3-70b.per_layer" fmt="int" /> weights in four matrices: the attention projections (queries, and the keys and values of <V of="shape.llama3-70b.kv_heads" fmt="int" /> grouped heads) and the gated MLP. A decode step multiplies one activation vector per sequence by all of them, so a batch of one does about two flops per weight read: <V of="decode(h100,llama3-70b,fp8,1,1024,8).intensity" fmt="num" /> flop per byte at 8 bits. A prefill of 2,048 tokens reuses each weight 2,048 times. The chapters follow those two steps on each family.
+
+<Callout kind="illustrative">
+
+The chip counts are capacity only: weights plus the KV cache, with no room for activations, runtime buffers or redundancy, so they are the fewest chips that could hold the model. The families' positions are categories, each with the source that supports it (the table above); a real chip can sit between two. Chapters 6 to 10, which cover the other four families, come in the next part of the site.
+
+</Callout>
+
+<Layer kind="maths">
+
+For a model of $P$ parameters at $b$ bytes each, serving $B$ sequences of $T$ tokens with $k_{\text{KV}}$ bytes of KV cache per token:
+
+$$
+n_{\text{chips}} = \left\lceil \frac{P b + B T k_{\text{KV}}}{M_{\text{chip}}} \right\rceil,
+\qquad
+k_{\text{KV}} = 2 \, L \, h_{\text{KV}} \, d_{\text{head}} \cdot b_{\text{KV}}.
+$$
+
+For Llama 3.1 70B, $L = 80$ layers, $h_{\text{KV}} = 8$ and $d_{\text{head}} = 128$, so $k_{\text{KV}}$ is <V of="shape.llama3-70b.kv_elems_per_token" fmt="int" /> elements per token. $M_{\text{chip}}$ is the chip's HBM when it has some, and its SRAM when it has none.
+
+</Layer>
+
+<Layer kind="code">
+
+Where the weights go, cut from [`src/lib/accel/model.ts`](https://github.com/BrendanJamesLynskey/ai-accelerators-explained/blob/main/src/lib/accel/model.ts):
+
+```ts
+const off = fval(pid, "off_bytes");
+let where: "off-chip" | "sram";
+let cap: number;
+let bw: number;
+if (off !== null && off > 0) {
+  where = "off-chip";
+  cap = off;
+  bw = fval(pid, "off_bw") as number;
+} else {
+  where = "sram";
+  cap = fval(pid, "sram_bytes") as number;
+  bw = fval(pid, "sram_bw") as number;
+}
+const chips = Math.ceil(need / cap);
+```
+
+</Layer>
+
+<Callout kind="deeper">
+
+- Where a GPU's data lives, level by level: [GPU Kernels Explained, chapter 1](https://gpu-kernels-explained.vercel.app/learn/01-memory-hierarchy); inside one matrix engine: [Systolic Arrays Explained, chapter 1](https://systolic-arrays-explained.vercel.app/learn/01-why-systolic); what the number formats cost in bytes: [Numerics Explained, chapter 4](https://numerics-explained.vercel.app/learn/04-formats-zoo); the machines these chips go into: [AI Racks Explained, chapter 1](https://ai-racks-explained.vercel.app/learn/01-chip-to-data-centre).
+- Google TPU series: [compute granularity](https://brendanjameslynskey.github.io/Google_TPU_12_TPU_vs_GPU/#slide-02), [scheduling: static compiler vs dynamic warp](https://brendanjameslynskey.github.io/Google_TPU_12_TPU_vs_GPU/#slide-03) and [memory: scratchpad vs cache](https://brendanjameslynskey.github.io/Google_TPU_12_TPU_vs_GPU/#slide-04).
+- Sze, Chen, Yang and Emer, [Efficient processing of deep neural networks: a tutorial and survey](https://arxiv.org/abs/1703.09039); Grattafiori et al., [The Llama 3 herd of models](https://arxiv.org/abs/2407.21783) (Table 3).
+
+</Callout>

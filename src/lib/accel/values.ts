@@ -1,0 +1,166 @@
+/**
+ * Every number the chapters quote comes from here, so prose cannot drift
+ * from the tested model. Two kinds of path:
+ *
+ *   - a record path: "part.h100.off_bw", "shape.llama3-70b.params",
+ *     "val.mlperf-h100.ratio", "band.latency.max", "pub.groq-70b-tps",
+ *     "overhead.groq-70b-tps.per_layer", "ill.d0_per_cm2";
+ *   - a model call and a field: "decode(h100,llama3-70b,fp8,1,4096,8).t_step"
+ *     (the arguments are the model function's, in order; numbers are parsed).
+ *
+ * tests/unit/values.test.ts checks every path the chapters use resolves.
+ */
+import {
+  fmtBits,
+  fmtBytes,
+  fmtFlops,
+  fmtInt,
+  fmtJoules,
+  fmtRate,
+  fmtTime,
+  fmtWatts,
+  pct,
+  trim,
+} from "@/lib/format";
+
+import {
+  ILLUSTRATIVE,
+  MODEL_ORDER,
+  PART_ORDER,
+  PUBLISHED,
+  band,
+  decode,
+  impliedOverhead,
+  layerMxu,
+  lpuCapacity,
+  maxBatch,
+  mxu,
+  part,
+  placement,
+  prefill,
+  ridge,
+  shape,
+  throughputCeiling,
+  validation,
+  waferYield,
+  wafersNeeded,
+} from "./model";
+
+export type Fmt =
+  | "rate"
+  | "bits"
+  | "bytes"
+  | "flops"
+  | "time"
+  | "watts"
+  | "joules"
+  | "pct"
+  | "int"
+  | "num"
+  | "raw";
+
+type Arg = string | number;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Fn = (...a: any[]) => unknown;
+
+/** The model functions a path may call. */
+const CALLS: Record<string, Fn> = {
+  placement,
+  decode,
+  prefill,
+  ridge,
+  ceiling: throughputCeiling,
+  maxBatch,
+  mxu,
+  layerMxu,
+  waferYield,
+  wafersNeeded,
+  lpuCapacity,
+};
+
+function build(): Record<string, unknown> {
+  const t: Record<string, unknown> = {};
+  const p: Record<string, unknown> = {};
+  for (const id of PART_ORDER) p[id] = part(id);
+  t.part = p;
+  const s: Record<string, unknown> = {};
+  for (const id of MODEL_ORDER) s[id] = shape(id);
+  t.shape = s;
+  const v: Record<string, unknown> = {};
+  for (const c of validation()) v[c.id] = c;
+  t.val = v;
+  t.band = band();
+  const pub: Record<string, unknown> = {};
+  for (const [k, f] of Object.entries(PUBLISHED)) pub[k] = f.v;
+  t.pub = pub;
+  const o: Record<string, unknown> = {};
+  for (const k of ["groq-70b-tps", "cerebras-70b-tps", "cerebras-8b-tps"])
+    o[k] = impliedOverhead(k);
+  t.overhead = o;
+  const ill: Record<string, unknown> = {};
+  for (const [k, f] of Object.entries(ILLUSTRATIVE)) ill[k] = f.v;
+  t.ill = ill;
+  return t;
+}
+
+let TREE: Record<string, unknown> | null = null;
+
+function walk(cur: unknown, keys: string[], path: string): unknown {
+  for (const k of keys) {
+    if (cur === null || typeof cur !== "object" || !(k in cur))
+      throw new Error(`no value at ${path}`);
+    cur = (cur as Record<string, unknown>)[k];
+  }
+  return cur;
+}
+
+const CALL = /^([A-Za-z]+)\(([^)]*)\)(?:\.(.+))?$/;
+
+export function lookup(path: string): number | string {
+  let cur: unknown;
+  const m = CALL.exec(path);
+  if (m) {
+    const fn = CALLS[m[1]!];
+    if (!fn) throw new Error(`no model function ${m[1]} in ${path}`);
+    const args: Arg[] = m[2]!
+      .split(",")
+      .filter((x) => x !== "")
+      .map((x) => (/^-?[\d.]+(e[+-]?\d+)?$/.test(x) ? Number(x) : x));
+    const res = fn(...args);
+    cur = m[3] ? walk(res, m[3].split("."), path) : res;
+  } else {
+    if (!TREE) TREE = build();
+    cur = walk(TREE, path.split("."), path);
+  }
+  if (typeof cur !== "number" && typeof cur !== "string")
+    throw new Error(`${path} is not a number or string`);
+  return cur;
+}
+
+export function formatValue(v: number | string, fmt: Fmt): string {
+  if (typeof v === "string") return v;
+  switch (fmt) {
+    case "rate":
+      return fmtRate(v);
+    case "bits":
+      return fmtBits(v);
+    case "bytes":
+      return fmtBytes(v);
+    case "flops":
+      return fmtFlops(v);
+    case "time":
+      return fmtTime(v);
+    case "watts":
+      return fmtWatts(v);
+    case "joules":
+      return fmtJoules(v);
+    case "pct":
+      return pct(v, v < 0.01 ? 2 : v < 0.1 ? 1 : 0);
+    case "int":
+      return fmtInt(v);
+    case "raw":
+      return String(v);
+    default:
+      return trim(v);
+  }
+}
