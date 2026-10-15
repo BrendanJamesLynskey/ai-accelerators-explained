@@ -18,7 +18,15 @@ export function trim(v: number, digits = 3): string {
   return s.toLocaleString("en-GB", { maximumFractionDigits: 6 });
 }
 
+const GIB = 2 ** 30;
+
+/**
+ * Bytes in decimal units, except a whole number of GiB, which only a source
+ * quoting GiB produces (TPU7x's 192 GiB, Trainium2's 96 GiB): printed as GiB
+ * so it reads as the source's figure, not as 206 GB (brief 38).
+ */
 export function fmtBytes(b: number): string {
+  if (b >= GIB && b % GIB === 0) return `${trim(b / GIB)} GiB`;
   return si(b, [
     [1e12, "TB"],
     [1e9, "GB"],

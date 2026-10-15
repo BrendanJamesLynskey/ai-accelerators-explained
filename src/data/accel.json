@@ -13,15 +13,21 @@
    "kind": "vendor technical blog",
    "accessed": "2026-10-15"
   },
-  "hgx-page": {
-   "title": "NVIDIA HGX platform page, HGX B200 specifications ('Specification in Sparse. Dense is 1/2 sparse spec shown')",
-   "url": "https://www.nvidia.com/en-us/data-center/hgx/",
+  "gb200-page": {
+   "title": "NVIDIA GB200 NVL72 product page, Specifications, GB200 Superchip column ('Specification in sparse. Dense is one-half sparse spec shown')",
+   "url": "https://www.nvidia.com/en-us/data-center/gb200-nvl72/",
    "kind": "vendor product page",
    "accessed": "2026-10-15"
   },
-  "dgx-b200-page": {
-   "title": "NVIDIA DGX B200 product page, Specifications",
-   "url": "https://www.nvidia.com/en-us/data-center/dgx-b200/",
+  "bwu-blog": {
+   "title": "Inside NVIDIA Blackwell Ultra: The Chip Powering the AI Factory Era (NVIDIA Technical Blog), Table 2",
+   "url": "https://developer.nvidia.com/blog/inside-nvidia-blackwell-ultra-the-chip-powering-the-ai-factory-era/",
+   "kind": "vendor technical blog",
+   "accessed": "2026-10-15"
+  },
+  "hgx-page": {
+   "title": "NVIDIA HGX platform page, HGX B200 specifications ('Specification in Sparse. Dense is 1/2 sparse spec shown')",
+   "url": "https://www.nvidia.com/en-us/data-center/hgx/",
    "kind": "vendor product page",
    "accessed": "2026-10-15"
   },
@@ -248,6 +254,9 @@
    "name": "GPUs",
    "chapter": 2,
    "example": "NVIDIA H100, B200",
+   "also": [
+    "hgx-page"
+   ],
    "placement": {
     "v": 0,
     "st": "spec",
@@ -544,80 +553,80 @@
   },
   {
    "id": "b200",
-   "name": "NVIDIA B200 (HGX B200)",
+   "name": "NVIDIA B200 (as in GB200 NVL72)",
    "family": "gpu",
    "layout": "tensor",
    "avail": {
     "v": "product",
     "st": "spec",
-    "src": "hgx-page",
-    "ref": "'HGX B300 and HGX B200 shipping now'"
+    "src": "gb200-page",
+    "ref": "GB200 NVL72 product page with specifications"
    },
    "fields": {
     "peak_bf16": {
-     "v": 2250000000000000.0,
+     "v": 2500000000000000.0,
      "st": "derived",
-     "src": "hgx-page",
-     "ref": "HGX B200 FP16/BF16 36 PFLOPS sparse for 8 GPUs: dense per GPU = 36 / 2 / 8"
+     "src": "gb200-page",
+     "ref": "GB200 Superchip FP16/BF16 10 PFLOPS sparse for 2 GPUs: dense per GPU = 10 / 2 / 2"
     },
     "peak_fp8": {
-     "v": 4500000000000000.0,
-     "st": "derived",
-     "src": "hgx-page",
-     "ref": "HGX B200 FP8/FP6 72 PFLOPS sparse for 8 GPUs: dense per GPU = 72 / 2 / 8"
+     "v": 5000000000000000.0,
+     "st": "spec",
+     "src": "bwu-blog",
+     "ref": "Table 2, Blackwell: FP8 dense 5 PetaFLOPS (GB200 Superchip: 20 PFLOPS sparse for 2 GPUs, the same)"
     },
     "peak_int8": {
-     "v": 4500000000000000.0,
+     "v": 5000000000000000.0,
      "st": "derived",
-     "src": "hgx-page",
-     "ref": "HGX B200 INT8 72 POPS sparse for 8 GPUs: dense per GPU = 72 / 2 / 8"
+     "src": "gb200-page",
+     "ref": "GB200 Superchip INT8 20 POPS sparse for 2 GPUs: dense per GPU = 20 / 2 / 2"
     },
     "sram_bytes": {
      "v": null,
      "st": "undisclosed",
-     "src": "hgx-page",
+     "src": "bwu-blog",
      "ref": "L2 size not given in the sources used"
     },
     "sram_bw": {
      "v": null,
      "st": "undisclosed",
-     "src": "hgx-page",
+     "src": "bwu-blog",
      "ref": "not given in the sources used"
     },
     "off_bytes": {
-     "v": 180000000000.0,
+     "v": 186000000000.0,
      "st": "derived",
-     "src": "dgx-b200-page",
-     "ref": "1,440 GB total GPU memory for 8 GPUs"
+     "src": "gb200-page",
+     "ref": "GB200 Superchip: 372 GB HBM3E for 2 GPUs, so 186 GB per GPU (Blackwell's maximum is 192 GB, bwu-blog Table 2)"
     },
     "off_bw": {
      "v": 8000000000000.0,
      "st": "derived",
-     "src": "dgx-b200-page",
-     "ref": "64 TB/s HBM3e bandwidth for 8 GPUs"
+     "src": "gb200-page",
+     "ref": "GB200 Superchip: 16 TB/s for 2 GPUs, so 8 TB/s per GPU (bwu-blog Table 2: 8 TB/s)"
     },
     "c2c_bidir": {
      "v": 1800000000000.0,
-     "st": "spec",
-     "src": "hgx-page",
-     "ref": "NVLink GPU-to-GPU bandwidth 1.8 TB/s"
+     "st": "derived",
+     "src": "gb200-page",
+     "ref": "GB200 Superchip NVLink 3.6 TB/s for 2 GPUs: 1.8 TB/s per GPU"
     },
     "hop_s": {
      "v": null,
      "st": "undisclosed",
-     "src": "hgx-page",
+     "src": "gb200-page",
      "ref": "NVLink latency not given in the sources used"
     },
     "power_w": {
-     "v": 1787.5,
-     "st": "derived",
-     "src": "dgx-b200-page",
-     "ref": "~14.3 kW max system power for 8 GPUs: a system share per GPU (includes CPUs, network, fans), not a GPU TDP"
+     "v": 1200,
+     "st": "spec",
+     "src": "bwu-blog",
+     "ref": "Table 2, Blackwell: Max power (TGP) up to 1,200W: the GPU's board power, as the H100's 700 W TDP is"
     },
     "units": {
      "v": null,
      "st": "undisclosed",
-     "src": "hgx-page",
+     "src": "bwu-blog",
      "ref": "SM count not given in the sources used"
     }
    }

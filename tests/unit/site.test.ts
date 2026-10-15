@@ -48,6 +48,8 @@ describe("site", () => {
   });
   it("formats", () => {
     expect(fmtBytes(230e6)).toBe("230 MB");
+    expect(fmtBytes(192 * 2 ** 30)).toBe("192 GiB");
+    expect(fmtBytes(80e9)).toBe("80 GB");
     expect(fmtFlops(125e15)).toBe("125 PFLOP/s");
     expect(fmtTime(0)).toBe("0 s");
     expect(fmtTime(2)).toBe("2 s");
