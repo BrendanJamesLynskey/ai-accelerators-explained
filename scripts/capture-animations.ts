@@ -61,7 +61,8 @@ const CLIPS: Clip[] = [
     name: "chain",
     path: "/learn/05-compiler-scheduled",
     widget: "chain-widget",
-    fps: 12,
+    fps: 8,
+    stride: 2,
   },
 ];
 
