@@ -1,0 +1,93 @@
+<DataflowWidget>
+  <Eq
+    label="Kernel by kernel, a layer's time is the sum over its operations of the larger of each one's bytes over bandwidth and its flops over the peak rate; fused, it is the larger of all the fused bytes over bandwidth and all the flops over the peak rate"
+    tex="\begin{gathered} t_{\text{kernels}} = \sum_i \max\!\left(\frac{\htmlClass{hl-mem}{B_i} + \htmlClass{hl-act}{A_i}}{\beta}, \frac{\htmlClass{hl-comp}{F_i}}{P}\right) \\ t_{\text{fused}} = \max\!\left(\frac{\sum_i \htmlClass{hl-mem}{B_i}}{\beta}, \frac{\sum_i \htmlClass{hl-comp}{F_i}}{P}\right) \end{gathered}"
+  />
+</DataflowWidget>
+
+<Layer kind="concept">
+
+A GPU runs a model as a sequence of kernels: one for the normalisation, one for the QKV projection, one for the attention scores, and so on. Each kernel reads its input from HBM and writes its result back, because the next kernel may run on any SM at any time. A **reconfigurable dataflow** chip turns the graph into a circuit instead. Its compiler lays the operations of a whole layer out across the chip, each on its own group of compute and memory units, wired together so that one operation's results stream straight into the next. HBM then sees only what has to come from outside: the weights, the KV cache, and the layer's input and output.
+
+SambaNova's SN40L is the example the model runs. Each socket has <V of="part.sn40l.units" fmt="int" /> Pattern Compute Units and as many Pattern Memory Units, <V of="part.sn40l.sram_bytes" fmt="bytes" /> of on-chip SRAM between them, and <V of="part.sn40l.peak_bf16" fmt="flops" /> of BF16 compute. The paper describes how the compiler fuses "hundreds of complex operations with arbitrary access patterns into a single kernel call".
+
+The animation runs one decoder layer of Llama 3.1 8B both ways on one socket. In a 2,048-token prefill, the kernel-by-kernel layer moves <V of="layerTraffic(sn40l,llama3-8b,bf16,2048,1,2048,true,false).bytes" fmt="bytes" /> to and from HBM: the activations between operations are as big as the weights, and unfused attention writes and re-reads its whole score matrix. Fused, it moves <V of="layerTraffic(sn40l,llama3-8b,bf16,2048,1,2048,true,true).bytes" fmt="bytes" />, and because the stages overlap, the layer's time is the larger of its total memory time and its total compute time, not the sum of each kernel's: <V of="layerTraffic(sn40l,llama3-8b,bf16,2048,1,2048,true,true).t" fmt="time" /> against <V of="layerTraffic(sn40l,llama3-8b,bf16,2048,1,2048,true,false).t" fmt="time" />.
+
+Switch the work to a decode step at batch 1 and the difference almost vanishes: <V of="layerTraffic(sn40l,llama3-8b,bf16,1,1,8192,false,false).bytes" fmt="bytes" /> against <V of="layerTraffic(sn40l,llama3-8b,bf16,1,1,8192,false,true).bytes" fmt="bytes" />. One token's activations are tiny next to the weights, which every design must read. What fusion buys in decode is not bytes but overhead: no kernel launches between operations, and weight loads overlapped with compute. The SN40L paper reports that this reaches "over 85% of HBM bandwidth", where GPU implementations "rarely exceed 50%". The model cannot see launch overhead, so it does not credit either claim; the validation below compares the paper's measured speed with the bandwidth bound instead.
+
+</Layer>
+
+## Three tiers of memory
+
+The SN40L's second idea is its memory. Besides the SRAM and <V of="part.sn40l.off_bytes" fmt="bytes" /> of HBM at <V of="part.sn40l.off_bw" fmt="rate" />, each socket has up to <V of="part.sn40l.ddr_bytes" fmt="bytes" /> of DDR at <V of="part.sn40l.ddr_bw" fmt="rate" />. HBM holds the models being served; DDR holds many more, ready to swap in. On 16 sockets, HBM holds <V of="tiers(sn40l,llama3-8b,bf16,16).hbm_models" fmt="int" /> copies of Llama 3.1 8B in 16 bits and DDR holds <V of="tiers(sn40l,llama3-8b,bf16,16).ddr_models" fmt="int" />; loading one from DDR into HBM over the sockets' DDR bandwidth takes <V of="tiers(sn40l,llama3-8b,bf16,16).switch_s" fmt="time" />. SambaNova built its "composition of experts" serving on this: many small models resident at once, switched per request. A GPU server holds its models in HBM and swaps from host memory over PCIe.
+
+<PartTable
+  ids="sn40l,sn50"
+  fields="peak_bf16,peak_fp8,sram_bytes,off_bytes,off_bw,ddr_bytes,ddr_bw,units,process,scale_up"
+/>
+
+The SN50, SambaNova's fifth generation, keeps the three tiers with <V of="other.sn50.sram_bytes" fmt="bytes" /> of SRAM per chip and quotes <V of="other.sn50.peak_bf16" fmt="flops" /> of BF16; the page does not give its HBM bandwidth or say that it is shipping, so the model does not run it.
+
+## What the paper measured
+
+The SN40L paper reports Llama 3.1 8B at <V of="pub.sn40l-8b-tps" fmt="int" /> output tokens per second for one user on <V of="pub.sn40l-sockets" fmt="int" /> sockets, in BF16 at an 8K sequence length: <V of="val.sn40l-8b-tps.ratio" fmt="pct" /> of the model's bandwidth bound, by far the closest any published speed in this site comes to its bound. Its 70B figure, <V of="pub.sn40l-70b-tps" fmt="int" /> tokens per second, is <V of="val.sn40l-70b-tps.ratio" fmt="num" /> times the one-token-per-step bound: the paper used speculative decoding there, which emits several tokens per read of the weights, so that row is shown but kept out of the validation band.
+
+<ValidationTable ids="sn40l-8b-tps,sn40l-70b-tps" />
+
+## The IPU: bulk-synchronous tiles
+
+Graphcore's IPU took the opposite memory bet. The first-generation GC2 has <V of="part.gc2.units" fmt="int" /> tiles, each a core with <V of="part.gc2.tile_sram" fmt="bytes" /> of its own SRAM, <V of="part.gc2.sram_bytes" fmt="bytes" /> in all at <V of="part.gc2.sram_bw" fmt="rate" />, and nothing else on the device: "the IPU offers no memory other than the distributed memories local to each tile". It runs the **bulk-synchronous parallel** model: every tile computes on its own memory, then all tiles stop at a barrier, then they exchange data on a schedule the compiler fixed, then compute again. A model must fit in the tiles' SRAM, as on a Groq chain: Llama 3.1 70B in 16 bits needs <V of="placement(gc2,llama3-70b,bf16,1,1024).chips" fmt="int" /> GC2s. Graphcore's site lists no IPU products on the access date, so the part is marked retired.
+
+<PartTable
+  ids="gc2"
+  fields="peak_fp16,sram_bytes,tile_sram,sram_bw,off_bytes,units,power_w"
+/>
+
+<Callout kind="illustrative">
+
+The layer is drawn as eleven operations with 16-bit activations; a real compiler also splits and pipelines them across many units and overlaps successive layers, which the model leaves out. Unfused attention is the naive kind that writes its score matrix to memory; a GPU with a fused attention kernel (FlashAttention) avoids that one round trip. The tiered-memory counts are capacity only, weights without KV caches, and use the paper's Table II (it lists 1.5 TB of DDR per socket; the current chip page lists up to 512 GB for the SN40). The IPU is the 2019 paper's GC2; its 150 W is the paper's nominal figure.
+
+</Callout>
+
+<Layer kind="maths">
+
+For operation $i$ of a layer, let $B_i$ be the weight and KV-cache bytes it must read, $A_i$ the activation bytes it reads and writes, and $F_i$ its flops. On a chip with memory bandwidth $\beta$ and peak $P$, kernels run one after another, each bound by its own larger term, so
+
+$$
+t_{\text{kernels}} = \sum_i \max\!\left(\frac{B_i + A_i}{\beta}, \frac{F_i}{P}\right) \;\ge\; \max\!\left(\frac{\sum_i B_i}{\beta}, \frac{\sum_i F_i}{P}\right) = t_{\text{fused}},
+$$
+
+with $A_i$ gone from the fused pipeline except at the layer's input and output. For a prefill of $T$ tokens with $h$ heads, the unfused attention also writes and reads its score matrix, $2 \cdot T \cdot h \cdot \bar{c}$ activations where $\bar{c}$ is the average number of positions each token attends to ($T/2$ for a causal prompt).
+
+In the bulk-synchronous model each superstep costs its slowest tile's compute, the barrier, and the exchange:
+
+$$
+t_{\text{superstep}} = \max_{\text{tiles}} t_{\text{compute}} + t_{\text{sync}} + t_{\text{exchange}}.
+$$
+
+</Layer>
+
+<Layer kind="code">
+
+The two ways of counting one operation's traffic, cut from [`src/lib/accel/model.ts`](https://github.com/BrendanJamesLynskey/ai-accelerators-explained/blob/main/src/lib/accel/model.ts):
+
+```ts
+let act: number;
+if (fused) {
+  act = 0.0;
+  if (i === 0) act = act + tokens * d * ACT_BYTES;
+  if (i === ops.length - 1) act = act + tokens * d * ACT_BYTES;
+} else {
+  act = (prev + width) * tokens * ACT_BYTES;
+}
+```
+
+</Layer>
+
+<Callout kind="deeper">
+
+- The same fusion on a GPU, one kernel at a time: [GPU Kernels Explained, chapter 9 (softmax and FlashAttention)](https://gpu-kernels-explained.vercel.app/learn/09-softmax-and-flashattention); compiling a graph onto a fixed array: [Systolic Arrays Explained, chapter 9](https://systolic-arrays-explained.vercel.app/learn/09-graph-to-silicon); speculative decoding: [Serving, chapter 7](https://llm-inference-explained.vercel.app/learn/07-speculative-decoding); the roofline both lanes sit under: [Serving, chapter 3](https://llm-inference-explained.vercel.app/learn/03-roofline).
+- Google TPU series, for the other whole-graph compiler: [compilation, AOT graph vs JIT kernel](https://brendanjameslynskey.github.io/Google_TPU_12_TPU_vs_GPU/#slide-05).
+- Prabhakar et al., [SambaNova SN40L: scaling the AI memory wall with dataflow and composition of experts](https://arxiv.org/abs/2405.07518), 2024; SambaNova, [RDU chip page](https://sambanova.ai/technology/sn40l-rdu-ai-chip) and [SN50 datasheet](https://sambanova.ai/hubfs/SambaNova%20SN50%20RDU.pdf); Jia, Tillman, Maggioni and Scarpazza, [Dissecting the Graphcore IPU architecture via microbenchmarking](https://arxiv.org/abs/1912.03413), 2019.
+
+</Callout>

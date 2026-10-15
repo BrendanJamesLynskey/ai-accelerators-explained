@@ -9,7 +9,12 @@ import type { MDXRemoteProps } from "next-mdx-remote/rsc";
 import { Layer } from "@/components/interactive/Layer";
 import {
   ChainWidget,
+  ChooseWidget,
+  CrossbarWidget,
+  DataflowWidget,
+  EdgeWidget,
   MapWidget,
+  MeshWidget,
   MxuWidget,
   RooflineWidget,
   WaferWidget,
@@ -17,6 +22,7 @@ import {
 import { Eq } from "@/components/mdx/Eq";
 import { V } from "@/components/mdx/V";
 import {
+  ChooseTable,
   DecodeTable,
   FamilyTable,
   PartTable,
@@ -36,9 +42,15 @@ export const mdxComponents: NonNullable<MDXRemoteProps["components"]> = {
   FamilyTable,
   ValidationTable,
   DecodeTable,
+  ChooseTable,
   MapWidget,
   RooflineWidget,
   MxuWidget,
   WaferWidget,
   ChainWidget,
+  DataflowWidget,
+  MeshWidget,
+  EdgeWidget,
+  CrossbarWidget,
+  ChooseWidget,
 };

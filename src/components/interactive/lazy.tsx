@@ -43,3 +43,23 @@ export const ChainWidget = dynamic(() => import("./ChainWidget"), {
   ssr: false,
   loading: loading("animation"),
 });
+export const DataflowWidget = dynamic(() => import("./DataflowWidget"), {
+  ssr: false,
+  loading: loading("animation"),
+});
+export const MeshWidget = dynamic(() => import("./MeshWidget"), {
+  ssr: false,
+  loading: loading("animation"),
+});
+export const EdgeWidget = dynamic(() => import("./EdgeWidget"), {
+  ssr: false,
+  loading: loading("animation"),
+});
+export const CrossbarWidget = dynamic(() => import("./CrossbarWidget"), {
+  ssr: false,
+  loading: loading("animation"),
+});
+export const ChooseWidget = dynamic(() => import("./ChooseWidget"), {
+  ssr: false,
+  loading: loading("animation"),
+});

@@ -1,0 +1,67 @@
+<EdgeWidget>
+  <Eq
+    label="At batch 1, a token's time is the larger of the weights at b bits each plus the KV cache over the memory bandwidth, and the flops over the peak rate"
+    tex="t_{\text{token}} = \max\!\left(\frac{\htmlClass{hl-bits}{N_w \cdot \tfrac{b}{8}} + \htmlClass{hl-kv}{c \cdot K}}{\htmlClass{hl-mem}{\beta}}, \frac{\htmlClass{hl-comp}{2 N_w + F_{\text{attn}}}}{P}\right)"
+  />
+</EdgeWidget>
+
+<Layer kind="concept">
+
+The eighth family is defined less by an architecture than by a budget. An **edge NPU** sits inside a phone, laptop or camera chip and has a few watts and whatever memory the device has. An **FPGA**, or an adaptive SoC that pairs programmable logic with arrays of small AI engines, is used when a design needs hardware shaped to one model. Both meet the same wall the animation shows: at batch 1, one user's token costs one read of every weight, and these devices have the least memory bandwidth of any family here.
+
+Apple's M4 is the example NPU. Its 16-core Neural Engine is rated at <V of="part.m4.peak_int8" fmt="ops" /> (Apple does not state the format; the model treats it as the 8-bit rate), and it shares the chip's unified memory with the CPU and GPU: up to <V of="part.m4.off_bytes" fmt="bytes" /> at <V of="part.m4.off_bw" fmt="rate" />. Llama 3.1 8B with 8-bit weights is a <V of="edgeBound(m4,llama3-8b,8,1024).weights" fmt="bytes" /> read per token, so the bound is <V of="edgeBound(m4,llama3-8b,8,1024).tok_s" fmt="num" /> tokens per second, and the Neural Engine's arithmetic is busy for <V of="edgeBound(m4,llama3-8b,8,1024).t_comp" fmt="time" /> of each <V of="edgeBound(m4,llama3-8b,8,1024).t" fmt="time" /> step. The rated operations per second hardly matter for decode; the bytes do. That is why the animation steps the weight width down: at 4 bits the same model reads half as much and the bound doubles to <V of="edgeBound(m4,llama3-8b,4,1024).tok_s" fmt="num" /> tokens per second.
+
+Narrow formats are where the two halves of this family differ. An NPU runs the formats its hardware and toolchain support: Hailo's 10H module, for example, is rated at <V of="other.hailo10h.peak_int4" fmt="ops" /> in INT4 and <V of="other.hailo10h.peak_int8" fmt="ops" /> in INT8, at <V of="other.hailo10h.power_w" fmt="watts" /> typical. An FPGA can implement any width at all, 6, 5 or 3 bits, with arithmetic built for exactly that width, so a weight costs exactly its bits in memory and in logic. The animation's widths between 8 and 4 bits are the ones an FPGA can serve directly and most NPUs cannot.
+
+</Layer>
+
+<PartTable
+  ids="m4,hailo10h,v70"
+  fields="peak_int8,peak_int4,peak_bf16,off_bytes,off_bw,sram_bw,power_w"
+/>
+
+## FPGAs: latency and custom numerics
+
+AMD's Alveo V70 shows the adaptive-SoC version: a Versal AI Core device with second-generation AI Engine tiles (a 2-D array of small vector processors, each with local memory, fed by "DMA engines for scheduled data movement"), rated at <V of="other.v70.peak_int8" fmt="ops" /> in INT8, with <V of="other.v70.sram_bw" fmt="rate" /> of internal memory bandwidth but only <V of="other.v70.off_bw" fmt="rate" /> to its external DDR, in a <V of="other.v70.power_w" fmt="watts" /> card. For a model held in DDR the bound is low: <V of="edgeBound(v70,llama3-8b,4,1024).tok_s" fmt="num" /> tokens per second for the 8B model at 4 bits, <V of="edgeBound(v70,llama3-8b,4,1024).j_per_token" fmt="num" /> J per token at its TDP. AMD has discontinued the V70, and its page does not give the DDR capacity, so the model reports no fit for it.
+
+Where FPGAs win is elsewhere. A design for one model is a fixed pipeline: no instruction fetch, no kernel launches, no batching needed to fill it, so the latency of a small model or a single layer is short and identical every time. That suits small networks that must answer quickly and predictably, next to the data they process (AMD tunes the V70 for "video analytics and natural language processing applications"), more than large language models, whose weights do not fit on chip. Their costs are design effort (a hardware design flow, not a kernel) and clock speed, well below a fixed-function chip's.
+
+<Callout kind="illustrative">
+
+Every bound reads each weight and the 1,024-token KV cache once per token at the device's full stated bandwidth; on the M4 that bandwidth is shared with the CPU and GPU and the Neural Engine's own share is not stated. The M4's 38 trillion operations per second are used as the 8-bit rate because Apple gives no format; the compute term never decides the bound here, so the choice does not change the result. No vendor here publishes LLM speeds for these devices in the sources used, so there is no validation row. Energy is TDP times the step time where a TDP is given (the V70), and not shown otherwise.
+
+</Callout>
+
+<Layer kind="maths">
+
+With $N_w$ weights of $b$ bits, a KV cache of $K$ bytes per position over a context of $c$ positions, memory bandwidth $\beta$ and peak $P$:
+
+$$
+t_{\text{token}} = \max\!\left(\frac{N_w\, b / 8 + c\,K}{\beta}, \frac{2 N_w + F_{\text{attn}}}{P}\right),
+\qquad
+\frac{\text{compute term}}{\text{memory term}} \approx \frac{2 N_w / P}{N_w b / (8\beta)} = \frac{16\,\beta}{b\,P}.
+$$
+
+For the M4 at 8 bits that ratio is $16 \times 120\,\text{GB/s} / (8 \times 38\,\text{T/s}) \approx 0.006$: the arithmetic is idle more than 99% of the time at batch 1.
+
+</Layer>
+
+<Layer kind="code">
+
+The decode bound at a chosen weight width, cut from [`src/lib/accel/model.ts`](https://github.com/BrendanJamesLynskey/ai-accelerators-explained/blob/main/src/lib/accel/model.ts):
+
+```ts
+const wb = bits / 8;
+const kvb = wb < 1 ? 1.0 : wb;
+const weights = s.params * wb;
+const nbytes = s.matmul_params * wb + ctx * s.kv_elems_per_token * kvb;
+```
+
+</Layer>
+
+<Callout kind="deeper">
+
+- What narrow weights cost in accuracy: [Numerics Explained, chapter 5 (quantisation basics)](https://numerics-explained.vercel.app/learn/05-quantisation-basics) and [chapter 8 (AWQ and NF4)](https://numerics-explained.vercel.app/learn/08-awq-and-nf4); how hardware supports the formats: [chapter 10](https://numerics-explained.vercel.app/learn/10-hardware); quantised kernels on a GPU: [GPU Kernels Explained, chapter 11](https://gpu-kernels-explained.vercel.app/learn/11-quantised-kernels); quantisation for serving: [Serving, chapter 8](https://llm-inference-explained.vercel.app/learn/08-quantisation).
+- Apple, [M4 announcement](https://www.apple.com/newsroom/2024/05/apple-introduces-m4-chip/) and [MacBook Pro with M4](https://www.apple.com/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/); AMD, [AI Engine technology](https://www.amd.com/en/products/adaptive-socs-and-fpgas/technologies/ai-engine.html) and [Alveo V70](https://www.amd.com/en/products/accelerators/alveo/v70.html); Hailo, [Hailo-10H M.2 module](https://hailo.ai/products/ai-accelerators/hailo-10h-m-2-ai-acceleration-module/).
+
+</Callout>

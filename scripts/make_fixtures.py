@@ -41,6 +41,10 @@ SPARE = (0.005, 0.015)
 SEEDS = (7, 11)
 DEFECT_COUNTS = (23, 46, 92)
 PER_STEP = (1, 2, 4)
+# (tokens, sequences, context, causal): a decode step at batch 1 and 64, and a 2,048-token prefill
+DATAFLOW_CASES = ((1, 1, 8192, False), (64, 64, 1024, False), (2048, 1, 2048, True))
+MESH_CARDS = (1, 2, 3, 4, 8)
+OVERHEAD_IDS = ("groq-70b-tps", "cerebras-70b-tps", "cerebras-8b-tps", "sn40l-8b-tps")
 
 
 def site_data() -> dict:
@@ -65,6 +69,13 @@ def site_data() -> dict:
         "chainCtx": a.CHAIN_CTX,
         "groqCtx": a.GROQ_CTX,
         "cerebrasCtx": a.CEREBRAS_CTX,
+        "sn40lCtx": a.SN40L_CTX,
+        "otherParts": [a.OTHER_PARTS[p] for p in a.OTHER_ORDER],
+        "imc": a.IMC,
+        "choice": {k: list(v) for k, v in a.CHOICE.items()},
+        "bits": list(a.BITS),
+        "edgeDevices": list(a.EDGE_DEVICES),
+        "actBytes": a.ACT_BYTES,
     }
 
 
@@ -156,9 +167,54 @@ def fixtures() -> dict:
         for f in FMTS
         for c in CTX
     ]
+    out["layerOps"] = {m: a.layer_ops(m) for m in a.MODEL_ORDER}
+    out["layerTraffic"] = [
+        {"part": p, "model": m, "fmt": "bf16", "tokens": t, "seqs": q, "ctx": c, "causal": cz, "fused": fu, "out": a.layer_traffic(p, m, "bf16", t, q, c, cz, fu)}
+        for p in ("sn40l",)
+        for m in a.MODEL_ORDER
+        for (t, q, c, cz) in DATAFLOW_CASES
+        for fu in (False, True)
+    ]
+    out["dataflowSteps"] = [
+        {"part": "sn40l", "model": m, "fmt": "bf16", "tokens": t, "seqs": q, "ctx": c, "causal": cz, "out": a.dataflow_steps("sn40l", m, "bf16", t, q, c, cz)}
+        for m in a.MODEL_ORDER
+        for (t, q, c, cz) in DATAFLOW_CASES
+    ]
+    out["tiers"] = [{"part": "sn40l", "model": m, "fmt": f, "sockets": n, "out": a.tiers("sn40l", m, f, n)} for m in a.MODEL_ORDER for f in ("bf16",) for n in (1, 8, 16)]
+    out["meshLayer"] = [
+        {"part": "blackhole", "model": m, "fmt": "fp8", "batch": b, "ctx": c, "cards": n, "out": a.mesh_layer("blackhole", m, "fp8", b, c, n)}
+        for m in a.MODEL_ORDER
+        for b in (1, 32)
+        for c in CTX
+        for n in MESH_CARDS
+    ]
+    out["meshSteps"] = [
+        {"part": "blackhole", "model": m, "fmt": "fp8", "batch": b, "ctx": 1024, "cards": n, "out": a.mesh_steps("blackhole", m, "fp8", b, 1024, n)}
+        for m in a.MODEL_ORDER
+        for b in (1, 32)
+        for n in MESH_CARDS
+    ]
+    out["edgeBound"] = [
+        {"part": p, "model": m, "bits": bt, "ctx": c, "out": a.edge_bound(p, m, bt, c)}
+        for p in a.EDGE_DEVICES
+        for m in a.MODEL_ORDER
+        for bt in a.BITS
+        for c in CTX
+    ]
+    out["edgeSteps"] = [{"part": p, "model": m, "ctx": c, "out": a.edge_steps(p, m, c)} for p in a.EDGE_DEVICES for m in a.MODEL_ORDER for c in CTX]
+    out["imcLayer"] = [{"model": m, "phase": ph, "out": a.imc_layer(m, ph)} for m in a.MODEL_ORDER for ph in (1, 4)]
+    out["imcSteps"] = [{"model": m, "phase": ph, "out": a.imc_steps(m, ph)} for m in a.MODEL_ORDER for ph in (1, 4)]
+    out["adcBits"] = [{"in": i, "w": w, "rows": r, "out": a.adc_bits(i, w, r)} for i in (4, 8) for w in (4, 8) for r in (64, 256, 512)]
+    out["choose"] = [
+        {"model": m, "batch": b, "ctx": c, "prompt": q, "out": a.choose(m, b, c, q)}
+        for m in ("llama3-8b", "llama3-70b")
+        for b in (1, 64)
+        for c in CTX
+        for q in (2048,)
+    ]
     out["validation"] = a.validation()
     out["band"] = a.band()
-    out["overhead"] = {k: a.implied_overhead(k) for k in ("groq-70b-tps", "cerebras-70b-tps", "cerebras-8b-tps")}
+    out["overhead"] = {k: a.implied_overhead(k) for k in OVERHEAD_IDS}
     return out
 
 
@@ -243,6 +299,31 @@ def results_md() -> str:
         w("| --- | --- | --- | --- | --- |")
         L.extend(_rows(p["fields"]))
     w("")
+    w("## Parts quoted, not modelled")
+    w("")
+    w("Each lacks a figure the model needs (a capacity or a bandwidth), so the site quotes them and runs nothing on them.")
+    for pid in a.OTHER_ORDER:
+        p = a.OTHER_PARTS[pid]
+        w("")
+        w(f"### {p['name']} (`{pid}`), family `{p['family']}`, availability: {p['avail']['v']}")
+        w("")
+        w(f"Availability: {p['avail']['ref']} ({_src(p['avail']['src'])}).")
+        w("")
+        w("| field | value | status | source | where |")
+        w("| --- | --- | --- | --- | --- |")
+        L.extend(_rows(p["fields"]))
+    w("")
+    w("## In-memory compute chip (chapter 9)")
+    for pid, p in a.IMC.items():
+        w("")
+        w(f"### {p['name']} (`{pid}`), availability: {p['avail']['v']}")
+        w("")
+        w(f"Availability: {p['avail']['ref']} ({_src(p['avail']['src'])}).")
+        w("")
+        w("| field | value | status | source | where |")
+        w("| --- | --- | --- | --- | --- |")
+        L.extend(_rows(p["fields"]))
+    w("")
     w("## The running workload")
     w("")
     w("| model | layers | d | FFN | heads | KV heads | vocabulary | parameters | matmul parameters | KV elements per token | source |")
@@ -295,7 +376,7 @@ def results_md() -> str:
     w("")
     w("| check | published (s/token) | bound (s/token) | extra per layer (s) |")
     w("| --- | --- | --- | --- |")
-    for k in ("groq-70b-tps", "cerebras-70b-tps", "cerebras-8b-tps"):
+    for k in OVERHEAD_IDS:
         o = a.implied_overhead(k)
         w(f"| `{k}` | {o['t_published']:.4g} | {o['t_model']:.4g} | {o['per_layer']:.4g} |")
     w("")
@@ -388,6 +469,75 @@ def results_md() -> str:
             for f in ("int8", "bf16"):
                 c = a.lpu_capacity(p, m, f, 1024)
                 w(f"| {a.PARTS[p]['name']} | {m} | {f} | {c['chips']} | {_num(c['racks'])} |")
+    w("")
+    w("### Chapter 6: one decoder layer on one SN40L socket, kernel by kernel vs fused (BF16)")
+    w("")
+    w("| model | case | kernel by kernel: bytes | time (s) | fused: bytes | time (s) | bytes saved |")
+    w("| --- | --- | --- | --- | --- | --- | --- |")
+    for m in ("llama3-8b", "llama3-70b"):
+        for (t, q, c, cz) in DATAFLOW_CASES:
+            u = a.layer_traffic("sn40l", m, "bf16", t, q, c, cz, False)
+            f = a.layer_traffic("sn40l", m, "bf16", t, q, c, cz, True)
+            case = f"prefill of {t:,} tokens" if cz else f"decode, batch {t}, context {c:,}"
+            w(f"| {m} | {case} | {_num(u['bytes'])} | {u['t']:.4g} | {_num(f['bytes'])} | {f['t']:.4g} | {1 - f['bytes'] / u['bytes']:.4g} |")
+    w("")
+    w("| model | sockets | SRAM (B) | layers in SRAM | HBM (B) | models in HBM | DDR (B) | models in DDR | DDR to HBM, one model (s) |")
+    w("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    for m in ("llama3-8b", "llama3-70b"):
+        for n in (1, 16):
+            x = a.tiers("sn40l", m, "bf16", n)
+            w(f"| {m} | {n} | {_num(x['sram'])} | {x['sram_layers']} | {_num(x['hbm'])} | {x['hbm_models']} | {_num(x['ddr'])} | {x['ddr_models']} | {x['switch_s']:.4g} |")
+    w("")
+    w("Graphcore GC2 (SRAM only), chips to hold each model in 16-bit:")
+    w("")
+    for m in a.MODEL_ORDER:
+        pl = a.placement("gc2", m, "bf16", 1, 1024)
+        w(f"- {m}: {pl['chips']} chips ({_num(pl['need'])} B)")
+    w("")
+    w("### Chapter 7: one decoder layer on Blackhole cards (FP8, 1,024-token context)")
+    w("")
+    w("| model | batch | cards | layer (s) | DRAM part (s) | Ethernet part (s) | layer weights per core (B) | fits in a core's SRAM | tokens/s per user (layers only) |")
+    w("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    for m in ("llama3-8b", "llama3-70b"):
+        for b in (1, 32):
+            for n in MESH_CARDS:
+                x = a.mesh_layer("blackhole", m, "fp8", b, 1024, n)
+                w(f"| {m} | {b} | {n} | {x['t']:.4g} | {x['t_dram']:.4g} | {x['t_eth']:.4g} | {_num(x['layer_per_core'])} | {_num(x['layer_fits'])} | {x['tok_s_user']:.4g} |")
+    w("")
+    w("### Chapter 8: one decode step at batch 1 by weight width (1,024-token context)")
+    w("")
+    w("| device | model | bits | weights (B) | bytes per step | step (s) | tokens/s | fits | J/token |")
+    w("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    for p in a.EDGE_DEVICES:
+        for m in ("llama3-8b",):
+            for e in a.edge_steps(p, m, 1024):
+                fits = "capacity not disclosed" if e["fits"] is None else _num(e["fits"])
+                w(f"| {p} | {m} | {e['bits']} | {_num(e['weights'])} | {_num(e['bytes'])} | {e['t']:.4g} | {e['tok_s']:.4g} | {fits} | {_t(e['j_per_token'])} |")
+    w("")
+    w("### Chapter 9: decoder models on the HERMES crossbars")
+    w("")
+    w("| model | read mode | tiles per layer | chips per layer | tiles | chips | crossbar time per layer (s) | crossbar time per token (s) | crossbar energy per token (J) |")
+    w("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    for m in a.MODEL_ORDER:
+        for ph in (1, 4):
+            x = a.imc_layer(m, ph)
+            w(f"| {m} | {ph}-phase | {x['layer_tiles']:,} | {x['layer_chips']:.4g} | {x['tiles']:,} | {x['chips']:,} | {x['t_layer']:.4g} | {x['t_token']:.4g} | {x['e_token']:.4g} |")
+    w("")
+    w(f"Bits an exact 256-row column sum of 8-bit inputs and 8-bit weights needs: {a.adc_bits(8, 8, 256)} (the chip's ADC path is 8-bit in and out).")
+    w("")
+    w("### Chapter 10: every family on the same model (batch 1, 1,024-token context, 2,048-token prompt)")
+    for m in ("llama3-8b", "llama3-70b"):
+        w("")
+        w(f"{m}:")
+        w("")
+        w("| family | part | format | chips | weights in | decode step (s) | per layer (s) | tokens/s per user | prefill (s) | J/token | decode utilisation | bound |")
+        w("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+        for r in a.choose(m, 1, 1024, 2048):
+            name = a.PARTS[r["part"]]["name"] if r["part"] in a.PARTS else a.IMC[r["part"]]["name"]
+            w(
+                f"| {r['name']} | {name} | {r['fmt']} | {r['chips']:,} | {r['where']} | {r['t_decode']:.4g} | {r['t_layer']:.4g} | "
+                f"{r['tok_s_user']:.4g} | {r['t_prefill']:.4g} | {_t(r['j_per_token'])} | {_t(r['util'])} | {r['bound']} ({r['basis']}) |"
+            )
     w("")
     return "\n".join(L)
 

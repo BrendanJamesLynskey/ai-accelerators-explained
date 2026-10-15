@@ -6,9 +6,10 @@ question is the same: **where do the weights and activations live, what
 moves on each step, and who decides when it moves** (the hardware at run
 time, or the compiler ahead of time)? GPUs are the baseline; then systolic
 designs (Google TPU, AWS Trainium), wafer-scale engines (Cerebras) and
-compiler-scheduled SRAM-only chips (Groq's LPU), with reconfigurable
-dataflow, meshes of small cores, FPGAs and edge NPUs, and in-memory compute to
-follow. Every chapter is built around an animation, every frame of every
+compiler-scheduled SRAM-only chips (Groq's LPU), reconfigurable dataflow
+(SambaNova's RDU, Graphcore's IPU), meshes of small cores (Tenstorrent),
+FPGAs and edge NPUs, and in-memory compute, then every family side by side on
+the same decoder model. Every chapter is built around an animation, every frame of every
 animation is computed by a small **accelerator model** whose TypeScript port
 matches its Python reference exactly, and every specification carries its
 source and the date it was read.
@@ -31,8 +32,8 @@ series.
 
 ## Part of
 
-This repository is brief 37 of a programme of companion sites. Part A (this
-state) builds the model, the sourced data and chapters 1–5; part B adds
+This repository is brief 37 of a programme of companion sites. Part A built
+the model, the sourced data and chapters 1–5; part B (this state) adds
 chapters 6–10 (dataflow, meshes, FPGAs and NPUs, in-memory compute, and a
 side-by-side comparison) and the deck and hub links; part C adds Accelerators
 to the shared site switch (Hardware = Kernels · Systolic · Accelerators ·
@@ -42,13 +43,18 @@ because `SiteSwitch.tsx` must stay byte-identical on every site.
 
 ## Chapters
 
-| #   | Chapter                                                                                              | The animation                                                                                                                              |
-| --- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | [The design space](https://ai-accelerators-explained.vercel.app/learn/01-the-design-space)           | The families on a map (where the weights live × who schedules), stepping through each, with the chips each needs to hold the running model |
-| 2   | [GPUs: the baseline](https://ai-accelerators-explained.vercel.app/learn/02-gpus-the-baseline)        | One decode step on H100s or B200s climbing the roofline as the batch grows, with its memory and compute terms                              |
-| 3   | [Systolic designs](https://ai-accelerators-explained.vercel.app/learn/03-systolic-designs)           | A matmul tile by tile on a 256 × 256 (TPU) or 128 × 128 (Trainium2) array, and how little of it a small batch uses                         |
-| 4   | [Wafer-scale](https://ai-accelerators-explained.vercel.app/learn/04-wafer-scale)                     | Defects landing on a wafer of 84 dies, each killing one core that a spare replaces, against a reticle-sized die's yield                    |
-| 5   | [Compiler-scheduled chips](https://ai-accelerators-explained.vercel.app/learn/05-compiler-scheduled) | One token down a chain of SRAM-only chips on a static schedule: SRAM reads, all-reduces and hops                                           |
+| #   | Chapter                                                                                                   | The animation                                                                                                                              |
+| --- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | [The design space](https://ai-accelerators-explained.vercel.app/learn/01-the-design-space)                | The families on a map (where the weights live × who schedules), stepping through each, with the chips each needs to hold the running model |
+| 2   | [GPUs: the baseline](https://ai-accelerators-explained.vercel.app/learn/02-gpus-the-baseline)             | One decode step on H100s or B200s climbing the roofline as the batch grows, with its memory and compute terms                              |
+| 3   | [Systolic designs](https://ai-accelerators-explained.vercel.app/learn/03-systolic-designs)                | A matmul tile by tile on a 256 × 256 (TPU) or 128 × 128 (Trainium2) array, and how little of it a small batch uses                         |
+| 4   | [Wafer-scale](https://ai-accelerators-explained.vercel.app/learn/04-wafer-scale)                          | Defects landing on a wafer of 84 dies, each killing one core that a spare replaces, against a reticle-sized die's yield                    |
+| 5   | [Compiler-scheduled chips](https://ai-accelerators-explained.vercel.app/learn/05-compiler-scheduled)      | One token down a chain of SRAM-only chips on a static schedule: SRAM reads, all-reduces and hops                                           |
+| 6   | [Reconfigurable dataflow](https://ai-accelerators-explained.vercel.app/learn/06-reconfigurable-dataflow)  | One decoder layer on an SN40L, kernel by kernel and fused into one pipeline, with each operation's HBM traffic                             |
+| 7   | [Meshes of small cores](https://ai-accelerators-explained.vercel.app/learn/07-meshes-of-cores)            | One layer over Blackhole cards: weights streamed from GDDR6 into 120 cores, then all-reduces over the cards' Ethernet                      |
+| 8   | [FPGAs and edge NPUs](https://ai-accelerators-explained.vercel.app/learn/08-fpgas-and-npus)               | A decode step on an M4 or a V70 at narrower and narrower weights, against the device's memory                                              |
+| 9   | [In-memory and analogue compute](https://ai-accelerators-explained.vercel.app/learn/09-in-memory-compute) | One layer on phase-change crossbars: weights programmed once, four analogue multiplies, attention off the array                            |
+| 10  | [Choosing](https://ai-accelerators-explained.vercel.app/learn/10-choosing)                                | Every family on the same model: decode and prefill bounds, energy and chips, side by side                                                  |
 
 ### The hero animations
 
@@ -62,6 +68,14 @@ versions sit beside them in [`docs/media/`](docs/media/).
 | Wafer defects                  | A chain of LPUs                |
 | ------------------------------ | ------------------------------ |
 | ![Wafer](docs/media/wafer.gif) | ![Chain](docs/media/chain.gif) |
+
+| Kernel by kernel or fused            | A mesh of cores              | An edge budget               |
+| ------------------------------------ | ---------------------------- | ---------------------------- |
+| ![Dataflow](docs/media/dataflow.gif) | ![Mesh](docs/media/mesh.gif) | ![Edge](docs/media/edge.gif) |
+
+| Crossbars                            | Every family                     |
+| ------------------------------------ | -------------------------------- |
+| ![Crossbar](docs/media/crossbar.gif) | ![Choose](docs/media/choose.gif) |
 
 ## The model
 
@@ -88,6 +102,19 @@ any product. [`data.py`](accel_model/data.py) holds the sourced data and
   weight streaming over the system's I/O;
 - **chains** (`chain_steps`, `lpu_capacity`): one token through a pipeline of
   SRAM-only chips;
+- **dataflow** (`layer_ops`, `layer_traffic`, `dataflow_steps`, `tiers`): one
+  layer's HBM traffic kernel by kernel or fused, and a three-tier memory's
+  capacity and model-switch time;
+- **meshes** (`mesh_layer`, `mesh_steps`): a layer split over cards by tensor
+  parallelism, streamed from DRAM into the cores, with ring all-reduces over
+  Ethernet;
+- **edge devices** (`edge_bound`, `edge_steps`): a batch-1 decode step at any
+  weight width on a bandwidth budget;
+- **in-memory compute** (`imc_layer`, `imc_steps`, `adc_bits`): a decoder
+  mapped onto 256 × 256 crossbar tiles, with the paper's per-multiply time and
+  energy;
+- **choosing** (`choose`): every family's representative part on the same
+  model;
 - **validation** (`validation`, `band`, `implied_overhead`).
 
 ### Sources and statuses
@@ -96,8 +123,11 @@ Every figure is a field `{v, st, src, ref}`: its value, a status (`spec`,
 `derived`, `reported`, `illustrative`, `undisclosed`), a source id and where
 in the source it is; every source records the date it was read
 (2026-10-15). Parts carry an availability: `product`, `announced` (the
-CS-4's WSE-3 Turbo, the Groq 3 LPU) or `retired` (the first-generation
-GroqChip, kept because published results used it). Where the sources used do
+CS-4's WSE-3 Turbo, the Groq 3 LPU, the SN50), `retired` (the first-generation
+GroqChip and Graphcore GC2, kept because published results used them; the
+discontinued Alveo V70) or `research` (the HERMES in-memory chip). Parts that
+lack a figure the model needs (the SN50's HBM bandwidth, the V70's DDR
+capacity, the Hailo-10H's bandwidth) are quoted in `OTHER_PARTS` and not run. Where the sources used do
 not give a figure (Cerebras's dense rate, TPU and Trainium power, NVLink and
 ICI latency), the model stores `null` and the site prints "not disclosed".
 Vendor claims are quoted in `CLAIMS` and never used as inputs.
@@ -108,8 +138,8 @@ the numbers the chapters use and the validation band to
 
 ### Validation band
 
-Seven published figures the model does not take as inputs, in three kinds
-([results.md](results.md#validation-band)):
+Eight published figures the model does not take as inputs, in three kinds,
+plus one shown outside the band ([results.md](results.md#validation-band)):
 
 - **Capacity** (3 checks, ratio 1.0 to 1.91): Cerebras's "as few as four
   systems" for a 16-bit 70B model and one for 20B match exactly; Groq's
@@ -117,11 +147,16 @@ Seven published figures the model does not take as inputs, in three kinds
   301, which is a floor (no room for activations, and whole nodes).
 - **Throughput** (1 check, 0.19): MLPerf Inference v4.0, eight H100s on
   Llama 2 70B Offline, against the compute ceiling for output tokens.
-- **Latency** (3 checks, 0.0013 to 0.082): one user's tokens per second on
-  SRAM designs (Groq, Cerebras) against the bandwidth bound. This is where
-  the model misses, and the chapters say so: once the weights are in SRAM,
-  bandwidth is not what limits one user. The published speeds imply 17 to
-  38 µs per layer beyond the bound, which the sources do not break down.
+- **Latency** (4 checks, 0.0013 to 0.58): one user's tokens per second
+  against the bandwidth bound. The SN40L paper's Llama 3.1 8B figure, read
+  from HBM, is 0.58 of it. The SRAM designs (Groq, Cerebras) are 0.0013 to
+  0.082: this is where the model misses, and the chapters say so: once the
+  weights are in SRAM, bandwidth is not what limits one user. Their published
+  speeds imply 17 to 38 µs per layer beyond the bound, which the sources do
+  not break down.
+- **Speculative** (shown, not in the band): the SN40L paper's 70B figure is
+  2.25 times the one-token-per-step bound, because it used speculative
+  decoding.
 
 ### What is illustrative
 
@@ -135,6 +170,14 @@ Seven published figures the model does not take as inputs, in three kinds
   the latency is not disclosed.
 - Energy per token for the B200 and the CS-3 uses a system share of stated
   system power, not a chip figure.
+- Chapter 6 draws a layer as eleven operations with 16-bit activations;
+  unfused attention writes its score matrix to memory (a fused attention
+  kernel would not). Chapter 7's 12 × 10 core grid is a drawing; Tenstorrent's
+  block FP8 rate is used as the FP8 rate, and Ethernet latency is not
+  disclosed. Chapter 8 treats Apple's 38 trillion operations per second as the
+  8-bit rate (Apple gives no format). Chapter 9 maps a decoder onto a research
+  chip to show scale; attention, digital partial sums and chip-to-chip
+  transfers are not timed.
 
 ### Checked
 
@@ -192,7 +235,7 @@ at commit `c493a2b`:
 | CI, Playwright, Vitest and Lighthouse configs, `scripts/`, `RUNBOOK.md`                                        | adapted (new model, pages and chapters)                                                                    |
 
 New here: the accelerator model and its port, the sourced tables
-(`src/components/mdx/Tables.tsx`), `/specs`, and the five widgets.
+(`src/components/mdx/Tables.tsx`), `/specs`, and the ten widgets.
 
 ## Local development
 
@@ -253,6 +296,7 @@ results.md            Every figure with its source and date, chapter numbers, va
 - Compiler-scheduled: Abts et al., 2022 — _A Software-defined Tensor Streaming Multiprocessor for Large-scale Machine Learning_ (ISCA; [Groq's copy, archived](https://web.archive.org/web/20250612160012/https://groq.com/wp-content/uploads/2024/02/GroqISCAPaper2022_ASoftwareDefinedTensorStreamingMultiprocessorForLargeScaleMachineLearning-1.pdf)); Groq, [GroqChip product brief](https://web.archive.org/web/20250615145238/https://groq.com/wp-content/uploads/2022/10/GroqChip%E2%84%A2-Processor-Product-Brief-v1.5.pdf); NVIDIA, [Groq 3 LPX](https://www.nvidia.com/en-us/data-center/lpx/).
 - Benchmarks: MLCommons, [MLPerf Inference v4.0 results](https://github.com/mlcommons/inference_results_v4.0) and the [Llama 2 70B reference](https://github.com/mlcommons/inference/blob/master/language/llama2-70b/README.md).
 - Models: Touvron et al., 2023 — _[Llama 2](https://arxiv.org/abs/2307.09288)_; Grattafiori et al., 2024 — _[The Llama 3 Herd of Models](https://arxiv.org/abs/2407.21783)_.
+- Dataflow, meshes and edge devices: SambaNova, [RDU chip page](https://sambanova.ai/technology/sn40l-rdu-ai-chip) and [SN50 datasheet](https://sambanova.ai/hubfs/SambaNova%20SN50%20RDU.pdf); Tenstorrent, [Blackhole](https://tenstorrent.com/hardware/blackhole); Apple, [M4](https://www.apple.com/newsroom/2024/05/apple-introduces-m4-chip/) and [MacBook Pro with M4](https://www.apple.com/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/); AMD, [AI Engine](https://www.amd.com/en/products/adaptive-socs-and-fpgas/technologies/ai-engine.html) and [Alveo V70](https://www.amd.com/en/products/accelerators/alveo/v70.html); Hailo, [Hailo-10H](https://hailo.ai/products/ai-accelerators/hailo-10h-m-2-ai-acceleration-module/).
 - The other families: Sze et al., 2017 — _[Efficient Processing of Deep Neural Networks](https://arxiv.org/abs/1703.09039)_; Prabhakar et al., 2024 — _[SambaNova SN40L](https://arxiv.org/abs/2405.07518)_; Jia et al., 2019 — _[Dissecting the Graphcore IPU](https://arxiv.org/abs/1912.03413)_; Le Gallo et al., 2023 — _[A 64-core mixed-signal in-memory compute chip](https://arxiv.org/abs/2212.02872)_.
 - Okabe and Ito, 2008 — _[Color Universal Design](https://jfly.uni-koeln.de/color/)_ (the palette).
 

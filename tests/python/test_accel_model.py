@@ -15,7 +15,7 @@ STATUSES = {"spec", "derived", "reported", "illustrative", "undisclosed"}
 
 
 def all_fields():
-    for p in a.PARTS.values():
+    for p in [*a.PARTS.values(), *a.OTHER_PARTS.values(), *a.IMC.values()]:
         yield p["avail"]
         yield from p["fields"].values()
     for f in a.FAMILIES:
@@ -35,7 +35,7 @@ def test_every_field_has_a_known_source_and_status():
 
 def test_every_source_is_dated_and_used():
     used = {f["src"] for f in all_fields()} | {c["src"] for c in a.CLAIMS.values()} | {m["src"] for m in a.MODELS.values()}
-    used |= {x for f in [*a.FAMILIES, *a.PUBLISHED.values()] for x in f.get("also", [])}
+    used |= {x for f in [*a.FAMILIES, *a.PUBLISHED.values(), *a.OTHER_PARTS.values()] for x in f.get("also", [])}
     for sid, s in a.SOURCES.items():
         assert s["accessed"] == a.ACCESSED == "2026-10-15"
         assert s["url"].startswith("https://")
@@ -47,6 +47,11 @@ def test_availability_values():
         assert p["avail"]["v"] in ("product", "announced", "retired")
     assert a.part("wse-3t")["avail"] == "announced"
     assert a.part("groq3")["avail"] == "announced"
+    assert a.part("gc2")["avail"] == "retired"
+    assert {p["avail"]["v"] for p in a.OTHER_PARTS.values()} == {"announced", "retired", "product"}
+    assert a.IMC["hermes"]["avail"]["v"] == "research"
+    # quoted parts lack a figure the model needs, so none of them is in PARTS
+    assert not set(a.OTHER_PARTS) & set(a.PARTS)
 
 
 def test_parameter_counts_match_the_model_names():
@@ -142,18 +147,115 @@ def test_chain_steps_sum_to_the_decode_bound():
 
 def test_validation_checks():
     v = {r["id"]: r for r in a.validation()}
-    assert len(v) == 7
+    assert len(v) == 9
     assert v["cerebras-70b-wafers"]["ratio"] == 1.0
     assert v["cerebras-20b-wafer"]["ratio"] == 1.0
     assert v["groq-70b-chips"]["model"] == 301
     assert 0.18 < v["mlperf-h100"]["ratio"] < 0.2
     for k in ("groq-70b-tps", "cerebras-70b-tps", "cerebras-8b-tps"):
         assert v[k]["ratio"] < 0.1  # the bound leaves out per-layer latency
+    # the SN40L paper's 8B figure, without speculative decoding, is about 0.58 of the bandwidth bound
+    assert 0.55 < v["sn40l-8b-tps"]["ratio"] < 0.6
+    # with speculative decoding the 70B figure beats a one-token-per-step bound
+    assert v["sn40l-70b-tps"]["ratio"] > 1 and v["sn40l-70b-tps"]["kind"] == "speculative"
     b = a.band()
-    assert b["capacity"]["n"] == 3 and b["latency"]["n"] == 3
+    assert b["capacity"]["n"] == 3 and b["latency"]["n"] == 4
+    assert "speculative" not in b
 
 
 def test_implied_overhead_is_tens_of_microseconds_per_layer():
     for k in ("groq-70b-tps", "cerebras-70b-tps", "cerebras-8b-tps"):
         o = a.implied_overhead(k)
         assert 10e-6 < o["per_layer"] < 50e-6
+
+
+# --- chapters 6-10 -------------------------------------------------------------
+
+
+def test_layer_ops_carry_every_weight_of_a_layer():
+    for m in a.MODEL_ORDER:
+        tot = 0
+        for o in a.layer_ops(m):
+            tot += o["w"]
+        assert tot == a.shape(m)["per_layer"]
+
+
+def test_fusion_keeps_weights_and_kv_and_drops_the_intermediates():
+    for case in ((1, 1, 8192, False), (2048, 1, 2048, True)):
+        u = a.layer_traffic("sn40l", "llama3-8b", "bf16", *case, False)
+        f = a.layer_traffic("sn40l", "llama3-8b", "bf16", *case, True)
+        uw = sum(o["w_bytes"] + o["kv_bytes"] for o in u["ops"])
+        fw = sum(o["w_bytes"] + o["kv_bytes"] for o in f["ops"])
+        assert uw == fw  # the same weights and KV cache either way
+        assert f["bytes"] < u["bytes"] and f["t"] <= u["t"]
+        assert u["flops"] == f["flops"]
+    # at batch 1 fusion saves almost nothing; in a prefill most of the traffic
+    u = a.layer_traffic("sn40l", "llama3-8b", "bf16", 1, 1, 8192, False, False)
+    f = a.layer_traffic("sn40l", "llama3-8b", "bf16", 1, 1, 8192, False, True)
+    assert 1 - f["bytes"] / u["bytes"] < 0.01
+    u = a.layer_traffic("sn40l", "llama3-8b", "bf16", 2048, 1, 2048, True, False)
+    f = a.layer_traffic("sn40l", "llama3-8b", "bf16", 2048, 1, 2048, True, True)
+    assert 1 - f["bytes"] / u["bytes"] > 0.5
+
+
+def test_dataflow_steps_end_at_the_layer_totals():
+    st = a.dataflow_steps("sn40l", "llama3-70b", "bf16", 2048, 1, 2048, True)
+    u = a.layer_traffic("sn40l", "llama3-70b", "bf16", 2048, 1, 2048, True, False)
+    f = a.layer_traffic("sn40l", "llama3-70b", "bf16", 2048, 1, 2048, True, True)
+    assert st[-1]["u_bytes"] == pytest.approx(u["bytes"], rel=1e-12)
+    assert st[-1]["u_t"] == pytest.approx(u["t"], rel=1e-12)
+    assert st[-1]["f_t"] == pytest.approx(f["t"], rel=1e-12)
+
+
+def test_tiers():
+    x = a.tiers("sn40l", "llama3-70b", "bf16", 16)
+    assert x["hbm_models"] == 7 and x["ddr_models"] == 170
+    # loading one 70B model from DDR over 16 sockets' DDR bandwidth
+    assert x["switch_s"] == pytest.approx(a.shape("llama3-70b")["params"] * 2 / (16 * 200e9))
+
+
+def test_mesh_layer():
+    one = a.mesh_layer("blackhole", "llama3-70b", "fp8", 1, 1024, 1)
+    two = a.mesh_layer("blackhole", "llama3-70b", "fp8", 1, 1024, 2)
+    assert one["t_eth"] == 0  # no all-reduce on one card
+    assert two["t_eth"] > 0
+    assert two["t_dram"] == pytest.approx(one["t_dram"] / 2, rel=1e-9)
+    assert not one["layer_fits"]  # a 70B layer is bigger than the cores' SRAM: it streams from GDDR
+    st = a.mesh_steps("blackhole", "llama3-70b", "fp8", 1, 1024, 2)
+    assert st[-1]["t"] == pytest.approx(two["t"], rel=1e-12)
+    assert [s["kind"] for s in st].count("ethernet") == 2
+
+
+def test_edge_bound_scales_with_bits():
+    st = a.edge_steps("m4", "llama3-8b", 1024)
+    assert [s["bits"] for s in st] == list(a.BITS)
+    for x, y in zip(st, st[1:]):
+        assert y["t"] < x["t"]
+    v = a.edge_bound("v70", "llama3-8b", 8, 1024)
+    assert v["fits"] is None  # the V70's DDR capacity is not disclosed
+    assert v["j_per_token"] == pytest.approx(75 * v["t"])
+    assert a.edge_bound("m4", "llama3-8b", 8, 1024)["j_per_token"] is None
+
+
+def test_imc_layer():
+    x = a.imc_layer("llama3-8b", 1)
+    assert x["layer_tiles"] == 16 * 24 + 16 * 16 + 16 * 112 + 56 * 16
+    assert x["capacity"] >= x["weights"]
+    assert (x["chips"] - 1) * 4194304 < x["weights"]
+    assert x["t_layer"] == pytest.approx(4 * 133e-9)
+    assert a.imc_layer("llama3-8b", 4)["t_layer"] == pytest.approx(4 * 520e-9)
+    st = a.imc_steps("llama3-8b", 1)
+    assert [s["name"] for s in st] == ["program", "QKV", "attention", "attention out", "MLP up and gate", "MLP down"]
+    assert st[-1]["t"] == pytest.approx(x["t_layer"])
+    assert a.adc_bits(8, 8, 256) == 24
+
+
+def test_choose_covers_every_family_once():
+    rows = a.choose("llama3-70b", 1, 1024, 2048)
+    assert [r["family"] for r in rows] == [f["id"] for f in a.FAMILIES]
+    for r in rows:
+        assert r["t_decode"] > 0 and r["t_prefill"] > 0 and r["chips"] >= 1
+        if r["util"] is not None:
+            assert 0 < r["util"] <= 1
+    by = {r["family"]: r for r in rows}
+    assert by["gpu"]["t_decode"] == a.decode("h100", "llama3-70b", "fp8", 1, 1024)["t_step"]

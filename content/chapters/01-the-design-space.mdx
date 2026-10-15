@@ -27,7 +27,7 @@ Every chapter runs the same decoder: Llama 3.1 8B and 70B, with the layer shapes
 
 <Callout kind="illustrative">
 
-The chip counts are capacity only: weights plus the KV cache, with no room for activations, runtime buffers or redundancy, so they are the fewest chips that could hold the model. The families' positions are categories, each with the source that supports it (the table above); a real chip can sit between two. Chapters 6 to 10, which cover the other four families, come in the next part of the site.
+The chip counts are capacity only: weights plus the KV cache, with no room for activations, runtime buffers or redundancy, so they are the fewest chips that could hold the model. The families' positions are categories, each with the source that supports it (the table above); a real chip can sit between two. The in-memory family has no chip count on the map because its chip stores weights in crossbars, not memory; [chapter 9](/learn/09-in-memory-compute) counts them, and [chapter 10](/learn/10-choosing) puts every family side by side.
 
 </Callout>
 

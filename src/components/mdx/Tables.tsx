@@ -20,10 +20,14 @@ import {
 import {
   FAMILIES,
   GRAIN_LABELS,
+  IMC_RECORDS,
+  OTHER_PART_RECORDS,
   PART_RECORDS,
   PLACEMENT_LABELS,
   SCHEDULE_LABELS,
   SOURCES,
+  anyName,
+  choose,
   decode,
   validation,
   type Field,
@@ -78,6 +82,48 @@ export const FIELD_INFO: Record<
   node_chips: { label: "Chips per node", fmt: fmtInt },
   clock_hz: { label: "Clock", fmt: (v) => `${trim(v / 1e6)} MHz` },
   rack_chips: { label: "Chips per rack", fmt: fmtInt },
+  ddr_bytes: { label: "DDR (third tier)", fmt: fmtBytes },
+  ddr_bw: { label: "DDR bandwidth", fmt: fmtRate },
+  tile_sram: { label: "SRAM per tile", fmt: fmtBytes },
+  riscv: { label: "'Big RISC-V' cores", fmt: fmtInt },
+  peak_int4: {
+    label: "INT4, dense",
+    fmt: (v) => fmtFlops(v).replace("FLOP/s", "OP/s"),
+  },
+  scale_up: { label: "Scale-up, chips", fmt: fmtInt },
+  cores: { label: "Crossbar cores", fmt: fmtInt },
+  rows: { label: "Crossbar rows", fmt: fmtInt },
+  cols: { label: "Crossbar columns", fmt: fmtInt },
+  weights: { label: "Weights on chip", fmt: fmtInt },
+  devices_per_weight: { label: "PCM devices per weight", fmt: fmtInt },
+  lat_1p: { label: "MVM latency, 1-phase", fmt: fmtTime },
+  lat_4p: { label: "MVM latency, 4-phase", fmt: fmtTime },
+  e_1p: {
+    label: "Energy, 64 MVMs, 1-phase",
+    fmt: (v) => `${trim(v * 1e6)} µJ`,
+  },
+  e_4p: {
+    label: "Energy, 64 MVMs, 4-phase",
+    fmt: (v) => `${trim(v * 1e6)} µJ`,
+  },
+  tops_1p: {
+    label: "Peak MVM rate, 1-phase",
+    fmt: (v) => fmtFlops(v).replace("FLOP/s", "OP/s"),
+  },
+  tops_4p: {
+    label: "Peak MVM rate, 4-phase",
+    fmt: (v) => fmtFlops(v).replace("FLOP/s", "OP/s"),
+  },
+  topsw_1p: {
+    label: "Efficiency, 1-phase",
+    fmt: (v) => `${trim(v / 1e12)} TOPS/W`,
+  },
+  topsw_4p: {
+    label: "Efficiency, 4-phase",
+    fmt: (v) => `${trim(v / 1e12)} TOPS/W`,
+  },
+  io_bits: { label: "Input/output bits", fmt: fmtInt },
+  die_mm2: { label: "Die area", fmt: (v) => `${fmtInt(v)} mm²` },
 };
 
 const STATUS_NOTE: Record<string, string> = {
@@ -144,7 +190,10 @@ export function PartTable({
   fields: string;
 }): JSX.Element {
   const recs = ids.split(",").map((id) => {
-    const r = PART_RECORDS.find((x) => x.id === id);
+    const r =
+      PART_RECORDS.find((x) => x.id === id) ??
+      OTHER_PART_RECORDS.find((x) => x.id === id) ??
+      IMC_RECORDS[id];
     if (!r) throw new Error(`no part ${id}`);
     return r;
   });
@@ -241,9 +290,18 @@ export function FamilyTable(): JSX.Element {
 }
 
 /** The model against published figures. */
-export function ValidationTable({ kinds }: { kinds?: string }): JSX.Element {
+export function ValidationTable({
+  kinds,
+  ids,
+}: {
+  kinds?: string;
+  ids?: string;
+}): JSX.Element {
   const want = kinds ? kinds.split(",") : null;
-  const rows = validation().filter((v) => !want || want.includes(v.kind));
+  const only = ids ? ids.split(",") : null;
+  const rows = validation().filter(
+    (v) => (!want || want.includes(v.kind)) && (!only || only.includes(v.id)),
+  );
   return (
     <Region label="Validation">
       <table className="w-full text-sm">
@@ -332,6 +390,54 @@ export function DecodeTable({ cases }: { cases: string }): JSX.Element {
                 {r.d.basis === "sparse" ? " (sparse peak)" : ""}
               </td>
               <td className="text-right font-mono">{trim(r.d.tok_s_user)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Region>
+  );
+}
+
+/** Chapter 10: every family's representative part on the same model. */
+export function ChooseTable({ model }: { model: string }): JSX.Element {
+  const rows = choose(model as ModelId, 1, 1024, 2048);
+  return (
+    <Region label="Every family on the same model">
+      <table className="w-full text-sm">
+        <thead>
+          <tr>
+            <th className="text-left">Family</th>
+            <th className="text-left">Part, format</th>
+            <th className="text-right">Chips</th>
+            <th className="text-right">Per token</th>
+            <th className="text-right">Tokens/s per user</th>
+            <th className="text-right">Prefill, 2,048</th>
+            <th className="text-right">J per token</th>
+            <th className="text-right">Decode utilisation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.family} data-choice={r.family}>
+              <th scope="row" className="text-left font-normal">
+                {r.name}
+              </th>
+              <td>
+                {anyName(r.part)}, {r.fmt.toUpperCase()}
+              </td>
+              <td className="text-right font-mono">{fmtInt(r.chips)}</td>
+              <td className="text-right font-mono">
+                {fmtTime(r.t_decode)}
+                {r.bound === "crossbar-only" ? "*" : ""}
+              </td>
+              <td className="text-right font-mono">{trim(r.tok_s_user)}</td>
+              <td className="text-right font-mono">{fmtTime(r.t_prefill)}</td>
+              <td className="text-right font-mono">
+                {r.j_per_token === null ? "not disclosed" : trim(r.j_per_token)}
+              </td>
+              <td className="text-right font-mono">
+                {r.util === null ? "–" : `${(r.util * 100).toFixed(2)}%`}
+              </td>
             </tr>
           ))}
         </tbody>

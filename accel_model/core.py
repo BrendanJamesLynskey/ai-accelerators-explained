@@ -30,7 +30,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from .data import FAMILIES, FORMATS, ILLUSTRATIVE, MODELS, PARTS, PUBLISHED
+from .data import FAMILIES, FORMATS, ILLUSTRATIVE, IMC, MODELS, OTHER_PARTS, PARTS, PUBLISHED
 
 # ---------------------------------------------------------------------------
 # Records
@@ -274,6 +274,9 @@ MAP_PARTS: dict[str, tuple[str, str]] = {
     "systolic": ("tpu-7x", "fp8"),
     "wafer": ("wse-3", "bf16"),
     "lpu": ("groqchip", "int8"),
+    "dataflow": ("sn40l", "bf16"),
+    "mesh": ("blackhole", "fp8"),
+    "fpga-npu": ("m4", "int8"),
 }
 
 
@@ -533,6 +536,7 @@ def lpu_capacity(pid: str, mid: str, fmt: str, ctx: int) -> dict[str, Any]:
 
 GROQ_CTX = 1024  # the demonstration's 512-token prompts and 1,024-token outputs: mid-generation context
 CEREBRAS_CTX = 1024  # not stated; a mid-length context (the KV cache is small beside 16-bit weights)
+SN40L_CTX = 8192  # the SN40L paper's Table IV: 'Sequence length of 8K is used'
 
 
 def validation() -> list[dict[str, Any]]:
@@ -562,13 +566,18 @@ def validation() -> list[dict[str, Any]]:
     add("cerebras-70b-tps", "latency", "4x CS-3, Llama 3.1 70B: tokens/s per user vs the bound", P["cerebras-70b-tps"], c70["tok_s_user"], "cerebras-inference")
     c8 = decode("wse-3", "llama3-8b", "bf16", 1, CEREBRAS_CTX)
     add("cerebras-8b-tps", "latency", "1x CS-3, Llama 3.1 8B: tokens/s per user vs the bound", P["cerebras-8b-tps"], c8["tok_s_user"], "cerebras-inference")
+    n = P["sn40l-sockets"]
+    s8 = decode("sn40l", "llama3-8b", "bf16", 1, SN40L_CTX, n)
+    add("sn40l-8b-tps", "latency", "16 SN40L sockets, Llama 3.1 8B, BF16: tokens/s per user vs the bound", P["sn40l-8b-tps"], s8["tok_s_user"], "sn40l")
+    s70 = decode("sn40l", "llama3-70b", "bf16", 1, SN40L_CTX, n)
+    add("sn40l-70b-tps", "speculative", "16 SN40L sockets, Llama 3.1 70B, BF16, speculative decoding: tokens/s per user vs the one-token-per-step bound", P["sn40l-70b-tps"], s70["tok_s_user"], "sn40l")
     return rows
 
 
 def implied_overhead(check_id: str) -> dict[str, Any]:
     """For a speed check: the time per token the system took beyond the model's bound, per layer."""
     v = next(r for r in validation() if r["id"] == check_id)
-    mid = {"groq-70b-tps": "llama2-70b", "cerebras-70b-tps": "llama3-70b", "cerebras-8b-tps": "llama3-8b"}[check_id]
+    mid = {"groq-70b-tps": "llama2-70b", "cerebras-70b-tps": "llama3-70b", "cerebras-8b-tps": "llama3-8b", "sn40l-8b-tps": "llama3-8b"}[check_id]
     t_pub = 1 / v["published"]
     t_mod = 1 / v["model"]
     layers = MODELS[mid]["layers"]
@@ -586,3 +595,438 @@ def band() -> dict[str, Any]:
 
 def illustrative(key: str) -> float:
     return ILLUSTRATIVE[key]["v"]
+
+
+# ---------------------------------------------------------------------------
+# Chapter 6: reconfigurable dataflow (one decoder layer, kernel by kernel or fused)
+# ---------------------------------------------------------------------------
+
+ACT_BYTES = 2.0  # activations in 16-bit (the SN40L paper: BF16 weights, mixed BF16/FP32 activations)
+
+
+def layer_ops(mid: str) -> list[dict[str, Any]]:
+    """
+    The operations of one decoder layer, in order: per token, the weights each
+    multiplies (`w`, parameters) and the width of its output (`out`,
+    elements). The attention scores' width depends on the context, so it is
+    worked out in `layer_traffic`.
+    """
+    s = shape(mid)
+    d, ffn = s["d"], s["ffn"]
+    kvd = s["kv_heads"] * s["head_dim"]
+    return [
+        {"name": "RMSNorm", "kind": "vector", "w": 0, "out": d},
+        {"name": "QKV", "kind": "matmul", "w": d * (d + 2 * kvd), "out": d + 2 * kvd},
+        {"name": "scores QK^T", "kind": "scores", "w": 0, "out": 0},
+        {"name": "softmax, x V", "kind": "values", "w": 0, "out": d},
+        {"name": "attention out", "kind": "matmul", "w": d * d, "out": d},
+        {"name": "residual add", "kind": "vector", "w": 0, "out": d},
+        {"name": "RMSNorm", "kind": "vector", "w": 0, "out": d},
+        {"name": "MLP up and gate", "kind": "matmul", "w": d * 2 * ffn, "out": 2 * ffn},
+        {"name": "SiLU x gate", "kind": "vector", "w": 0, "out": ffn},
+        {"name": "MLP down", "kind": "matmul", "w": ffn * d, "out": d},
+        {"name": "residual add", "kind": "vector", "w": 0, "out": d},
+    ]
+
+
+def layer_traffic(pid: str, mid: str, fmt: str, tokens: int, seqs: int, ctx: int, causal: bool, fused: bool) -> dict[str, Any]:
+    """
+    One decoder layer on one chip: the bytes each operation moves to and from
+    off-chip memory, its flops and its time. `tokens` rows go through the
+    layer, from `seqs` sequences that each attend over `ctx` positions (half
+    of them on average when `causal`, as in a prefill).
+
+    Kernel by kernel (fused = False), each operation reads its input from
+    memory and writes its output back, including the attention scores; the
+    layer's time is the sum of each kernel's max(memory, compute). Fused into
+    one dataflow pipeline (fused = True), the intermediate results stay in
+    on-chip buffers: memory sees only the weights, the KV cache and the
+    layer's input and output, and since the stages overlap, the layer's time
+    is max(all its bytes / bandwidth, all its flops / peak).
+    """
+    s = shape(mid)
+    b = FORMATS[fmt]
+    kvb = kv_bytes_per_elem(fmt)
+    d, h = s["d"], s["heads"]
+    kvd = s["kv_heads"] * s["head_dim"]
+    avg = ctx / 2 if causal else ctx
+    bw = fval(pid, "off_bw")
+    pk = peak(pid, fmt)["flops"]
+    kv_read = seqs * ctx * kvd * kvb
+    ops = layer_ops(mid)
+    out = []
+    prev = d
+    tot_bytes = 0.0
+    tot_flops = 0.0
+    t_sum = 0.0
+    for i, o in enumerate(ops):
+        wbytes = o["w"] * b
+        width = h * avg if o["kind"] == "scores" else o["out"]
+        kv = 0.0
+        flops = 0.0
+        if o["kind"] == "matmul":
+            flops = 2 * o["w"] * tokens
+        if o["kind"] == "scores":
+            kv = kv_read
+            flops = 2 * tokens * d * avg
+        if o["kind"] == "values":
+            kv = kv_read
+            flops = 2 * tokens * d * avg
+        if o["name"] == "QKV":
+            kv = kv + tokens * 2 * kvd * kvb
+        if fused:
+            act = 0.0
+            if i == 0:
+                act = act + tokens * d * ACT_BYTES
+            if i == len(ops) - 1:
+                act = act + tokens * d * ACT_BYTES
+        else:
+            # the scores op reads Q and K; the values op reads the scores
+            act = (prev + width) * tokens * ACT_BYTES
+        nbytes = wbytes + act + kv
+        t_mem = nbytes / bw
+        t_comp = flops / pk
+        t = t_mem if t_mem >= t_comp else t_comp
+        out.append({"i": i, "name": o["name"], "kind": o["kind"], "w_bytes": wbytes, "act_bytes": act, "kv_bytes": kv, "bytes": nbytes, "flops": flops, "t": t})
+        tot_bytes = tot_bytes + nbytes
+        tot_flops = tot_flops + flops
+        t_sum = t_sum + t
+        prev = width
+    if fused:
+        tm = tot_bytes / bw
+        tc = tot_flops / pk
+        t_layer = tm if tm >= tc else tc
+    else:
+        t_layer = t_sum
+    return {"ops": out, "bytes": tot_bytes, "flops": tot_flops, "t": t_layer}
+
+
+def dataflow_steps(pid: str, mid: str, fmt: str, tokens: int, seqs: int, ctx: int, causal: bool) -> list[dict[str, Any]]:
+    """
+    Chapter 6's frames: the layer's operations one at a time, with the bytes
+    and time so far kernel by kernel and fused (fused time so far = the larger
+    of its bytes and flops so far over bandwidth and peak).
+    """
+    u = layer_traffic(pid, mid, fmt, tokens, seqs, ctx, causal, False)
+    f = layer_traffic(pid, mid, fmt, tokens, seqs, ctx, causal, True)
+    bw = fval(pid, "off_bw")
+    pk = peak(pid, fmt)["flops"]
+    out = []
+    ub = 0.0
+    ut = 0.0
+    fb = 0.0
+    ff = 0.0
+    for i in range(len(u["ops"])):
+        uo = u["ops"][i]
+        fo = f["ops"][i]
+        ub = ub + uo["bytes"]
+        ut = ut + uo["t"]
+        fb = fb + fo["bytes"]
+        ff = ff + fo["flops"]
+        tm = fb / bw
+        tc = ff / pk
+        out.append({"i": i, "name": uo["name"], "kind": uo["kind"], "u_bytes": ub, "u_t": ut, "f_bytes": fb, "f_t": tm if tm >= tc else tc, "u_op": uo["bytes"], "f_op": fo["bytes"]})
+    return out
+
+
+def tiers(pid: str, mid: str, fmt: str, sockets: int) -> dict[str, Any]:
+    """
+    A tiered-memory machine of `sockets` chips: how many layers' weights its
+    SRAM holds at once, how many copies of the model its HBM and its DDR hold,
+    and how long one model takes to load from DDR into HBM.
+    """
+    s = shape(mid)
+    b = FORMATS[fmt]
+    w = s["params"] * b
+    layer = s["per_layer"] * b
+    sram = sockets * fval(pid, "sram_bytes")
+    hbm = sockets * fval(pid, "off_bytes")
+    ddr = sockets * fval(pid, "ddr_bytes")
+    return {
+        "weights": w,
+        "sram": sram,
+        "hbm": hbm,
+        "ddr": ddr,
+        "sram_layers": math.floor(sram / layer),
+        "hbm_models": math.floor(hbm / w),
+        "ddr_models": math.floor(ddr / w),
+        "switch_s": w / (sockets * fval(pid, "ddr_bw")),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Chapter 7: a mesh of small cores, cards tied by Ethernet
+# ---------------------------------------------------------------------------
+
+
+def mesh_layer(pid: str, mid: str, fmt: str, batch: int, ctx: int, cards: int) -> dict[str, Any]:
+    """
+    One decoder layer split over `cards` mesh chips by tensor parallelism.
+    Each card holds 1/cards of every weight matrix in its DRAM and spreads it
+    over its cores; per decode step it streams its share in from DRAM
+    (`t` = max(bytes / DRAM bandwidth, flops / peak)); after the attention
+    output and the MLP down projection the cards all-reduce the activations
+    over their Ethernet ports (a ring: 2 (cards - 1) / cards of the data, at
+    the per-direction rate). Ethernet latency is not disclosed and not added.
+    """
+    s = shape(mid)
+    b = FORMATS[fmt]
+    kvb = kv_bytes_per_elem(fmt)
+    kvd = s["kv_heads"] * s["head_dim"]
+    cores = fval(pid, "units")
+    core_sram = fval(pid, "sram_bytes") / cores
+    bw = fval(pid, "off_bw")
+    pk = peak(pid, fmt)["flops"]
+    link = fval(pid, "c2c_bidir") / 2
+    g = layer_gemms(mid)
+    ar_bytes = 0.0 if cards == 1 else 2 * (cards - 1) / cards * batch * s["d"] * ACT_BYTES
+
+    def gemm(x: dict[str, Any]) -> dict[str, Any]:
+        wc = x["k"] * x["n"] * b / cards
+        fl = 2 * x["k"] * x["n"] * batch / cards
+        tm = wc / bw
+        tc = fl / pk
+        return {"name": x["name"], "kind": "matmul", "bytes": wc, "per_core": wc / cores, "fits_core": wc / cores <= core_sram, "flops": fl, "t": tm if tm >= tc else tc}
+
+    kv = 2 * batch * ctx * kvd * kvb / cards
+    afl = 2 * 2 * s["d"] * ctx * batch / cards
+    am = kv / bw
+    ac = afl / pk
+    attn = {"name": "attention", "kind": "attention", "bytes": kv, "per_core": kv / cores, "fits_core": kv / cores <= core_sram, "flops": afl, "t": am if am >= ac else ac}
+    ar = {"name": "all-reduce", "kind": "ethernet", "bytes": ar_bytes, "per_core": 0.0, "fits_core": True, "flops": 0.0, "t": ar_bytes / link}
+    ops = [gemm(g[0]), attn, gemm(g[1]), dict(ar), gemm(g[2]), gemm(g[3]), dict(ar)]
+    t = 0.0
+    eth = 0.0
+    dram = 0.0
+    per_core = 0.0
+    for i, o in enumerate(ops):
+        o["i"] = i
+        t = t + o["t"]
+        if o["kind"] == "ethernet":
+            eth = eth + o["t"]
+        else:
+            dram = dram + o["t"]
+        if o["kind"] == "matmul":
+            per_core = per_core + o["per_core"]
+    return {
+        "ops": ops,
+        "t": t,
+        "t_dram": dram,
+        "t_eth": eth,
+        "core_sram": core_sram,
+        "cores": cores,
+        "cards": cards,
+        "layer_per_core": per_core,
+        "layer_fits": per_core <= core_sram,
+        "tok_s_user": 1 / (t * s["layers"]),
+    }
+
+
+def mesh_steps(pid: str, mid: str, fmt: str, batch: int, ctx: int, cards: int) -> list[dict[str, Any]]:
+    """Chapter 7's frames: the layer's steps in order, with the time so far."""
+    m = mesh_layer(pid, mid, fmt, batch, ctx, cards)
+    out = []
+    t = 0.0
+    for o in m["ops"]:
+        t = t + o["t"]
+        out.append({"i": o["i"], "name": o["name"], "kind": o["kind"], "bytes": o["bytes"], "per_core": o["per_core"], "fits_core": o["fits_core"], "t_op": o["t"], "t": t})
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Chapter 8: FPGAs and edge NPUs (a bandwidth budget, custom numerics)
+# ---------------------------------------------------------------------------
+
+BITS = (16, 8, 6, 5, 4, 3, 2)
+EDGE_DEVICES = ("m4", "v70")
+
+
+def anyval(pid: str, key: str) -> Any:
+    """A field of a modelled part or of a quoted one (OTHER_PARTS)."""
+    rec = PARTS[pid] if pid in PARTS else OTHER_PARTS[pid]
+    f = rec["fields"].get(key)
+    return None if f is None else f["v"]
+
+
+def edge_bound(pid: str, mid: str, bits: int, ctx: int) -> dict[str, Any]:
+    """
+    One decode step at batch 1 with weights stored at `bits` bits each (a
+    custom width an FPGA can implement; an NPU runs the formats its toolchain
+    supports): every weight and the KV cache read once from the device's
+    memory, against its peak (the 8-bit rate for 8 bits or fewer, the 16-bit
+    rate above). Fit and energy only where the capacity and power are given.
+    """
+    s = shape(mid)
+    wb = bits / 8
+    kvb = 1.0 if wb < 1 else wb
+    weights = s["params"] * wb
+    nbytes = s["matmul_params"] * wb + ctx * s["kv_elems_per_token"] * kvb
+    bw = anyval(pid, "off_bw")
+    t_mem = nbytes / bw
+    flops = 2 * s["matmul_params"] + s["attn_flops_per_pos"] * ctx
+    pk = anyval(pid, "peak_int8") if bits <= 8 else anyval(pid, "peak_bf16")
+    t_comp = None if pk is None else flops / pk
+    t = t_mem if t_comp is None or t_mem >= t_comp else t_comp
+    cap = anyval(pid, "off_bytes")
+    pw = anyval(pid, "power_w")
+    return {
+        "bits": bits,
+        "weights": weights,
+        "bytes": nbytes,
+        "t_mem": t_mem,
+        "t_comp": t_comp,
+        "t": t,
+        "tok_s": 1 / t,
+        "fits": None if cap is None else weights + ctx * s["kv_elems_per_token"] * kvb <= cap,
+        "j_per_token": None if pw is None else pw * t,
+    }
+
+
+def edge_steps(pid: str, mid: str, ctx: int) -> list[dict[str, Any]]:
+    """Chapter 8's frames: the same decode step at narrower and narrower weights."""
+    out = []
+    for i, bits in enumerate(BITS):
+        e = edge_bound(pid, mid, bits, ctx)
+        e["i"] = i
+        out.append(e)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Chapter 9: analogue in-memory compute (a decoder layer on PCM crossbars)
+# ---------------------------------------------------------------------------
+
+
+def ival(key: str) -> Any:
+    return IMC["hermes"]["fields"][key]["v"]
+
+
+def imc_layer(mid: str, phase: int) -> dict[str, Any]:
+    """
+    A decoder model mapped onto the HERMES chip's 256 x 256 crossbar cores:
+    every weight matrix cut into crossbar tiles (weights stay put), the cores
+    and chips that takes, and one token's time and energy if the four
+    matrix-vector stages of every layer (QKV, attention out, MLP up and gate,
+    MLP down) each take one MVM latency and every tile does one MVM per token.
+    Attention over the KV cache is not an in-memory operation (the cache
+    changes every token) and the chip-to-chip transfers have no disclosed
+    figures, so both are left out: the time is the crossbars' share only.
+    `phase` 1 = the low-precision read mode, 4 = the high-precision one.
+    """
+    s = shape(mid)
+    rows = ival("rows")
+    cols = ival("cols")
+    cores = ival("cores")
+    lat = ival("lat_1p") if phase == 1 else ival("lat_4p")
+    e_core = (ival("e_1p") if phase == 1 else ival("e_4p")) / cores
+    gemms = []
+    layer_tiles = 0
+    psums = 0
+    for g in layer_gemms(mid):
+        tk = math.ceil(g["k"] / rows)
+        tn = math.ceil(g["n"] / cols)
+        tiles = tk * tn
+        layer_tiles += tiles
+        psums += (tk - 1) * g["n"]
+        gemms.append({"name": g["name"], "k": g["k"], "n": g["n"], "tiles": tiles, "util": g["k"] * g["n"] / (tiles * rows * cols)})
+    head = math.ceil(s["d"] / rows) * math.ceil(s["vocab"] / cols)
+    tiles = s["layers"] * layer_tiles + head
+    chips = math.ceil(tiles / cores)
+    t_layer = 4 * lat
+    t_token = s["layers"] * t_layer + lat
+    return {
+        "gemms": gemms,
+        "layer_tiles": layer_tiles,
+        "layer_chips": layer_tiles / cores,
+        "tiles": tiles,
+        "chips": chips,
+        "psums": psums,
+        "lat": lat,
+        "t_layer": t_layer,
+        "t_token": t_token,
+        "e_token": tiles * e_core,
+        "weights": s["matmul_params"],
+        "capacity": chips * ival("weights"),
+    }
+
+
+def imc_steps(mid: str, phase: int) -> list[dict[str, Any]]:
+    """
+    Chapter 9's frames: one layer for one token. Frame 0 is the weights
+    programmed into the crossbars (once, before inference); then QKV, the
+    attention (digital, off the crossbars), and the three other matrix
+    stages, with the crossbar time and energy so far.
+    """
+    m = imc_layer(mid, phase)
+    e_core = (ival("e_1p") if phase == 1 else ival("e_4p")) / ival("cores")
+    order = [("program", -1), ("QKV", 0), ("attention", -1), ("attention out", 1), ("MLP up and gate", 2), ("MLP down", 3)]
+    out = []
+    t = 0.0
+    e = 0.0
+    for i, (name, gi) in enumerate(order):
+        tiles = 0
+        if gi >= 0:
+            tiles = m["gemms"][gi]["tiles"]
+            t = t + m["lat"]
+            e = e + tiles * e_core
+        out.append({"i": i, "name": name, "gemm": gi, "tiles": tiles, "t": t, "e": e})
+    return out
+
+
+def adc_bits(in_bits: int, w_bits: int, rows: int) -> int:
+    """Bits an exact column sum needs: input bits + weight bits + log2(rows), against the ADC's output."""
+    return in_bits + w_bits + math.ceil(math.log2(rows))
+
+
+# ---------------------------------------------------------------------------
+# Chapter 10: every family on the same decoder model
+# ---------------------------------------------------------------------------
+
+# The representative part and format each family runs in chapter 10.
+CHOICE: dict[str, tuple[str, str]] = {
+    "gpu": ("h100", "fp8"),
+    "systolic": ("tpu-7x", "fp8"),
+    "wafer": ("wse-3", "bf16"),
+    "lpu": ("groqchip", "int8"),
+    "dataflow": ("sn40l", "bf16"),
+    "mesh": ("blackhole", "fp8"),
+    "fpga-npu": ("m4", "int8"),
+    "imc": ("hermes", "int8"),
+}
+
+
+def choose(mid: str, batch: int, ctx: int, prompt: int) -> list[dict[str, Any]]:
+    """
+    One row per family: the fewest chips that hold the model, one decode
+    step's bound (and per layer), a prefill's bound, energy per token where
+    power is given, and the share of the chips' peak a decode step uses.
+    """
+    s = shape(mid)
+    out = []
+    for i, f in enumerate(FAMILIES):
+        pid, fmt = CHOICE[f["id"]]
+        if pid == "hermes":
+            m = imc_layer(mid, 1)
+            ops = 2 * s["matmul_params"]
+            t_pf = (prompt + 4 * s["layers"]) * m["lat"]
+            out.append({
+                "i": i, "family": f["id"], "name": f["name"], "part": pid, "fmt": fmt,
+                "chips": m["chips"], "where": "in-array",
+                "t_decode": m["t_token"], "t_layer": m["t_layer"], "tok_s_user": 1 / m["t_token"],
+                "t_prefill": t_pf, "j_per_token": m["e_token"],
+                "util": ops / (m["t_token"] * m["chips"] * ival("tops_1p")),
+                "bound": "crossbar-only", "basis": "dense",
+            })
+            continue
+        d = decode(pid, mid, fmt, batch, ctx)
+        pf = prefill(pid, mid, fmt, prompt)
+        pk = peak(pid, fmt)
+        out.append({
+            "i": i, "family": f["id"], "name": f["name"], "part": pid, "fmt": fmt,
+            "chips": d["chips"], "where": d["where"],
+            "t_decode": d["t_step"], "t_layer": d["t_step"] / s["layers"], "tok_s_user": d["tok_s_user"],
+            "t_prefill": pf["t"], "j_per_token": d["j_per_token"],
+            "util": None if pk["flops"] is None else d["flops"] / (d["t_step"] * d["chips"] * pk["flops"]),
+            "bound": d["bound"], "basis": pk["basis"],
+        })
+    return out

@@ -16,7 +16,7 @@ export type Status =
   | "reported"
   | "illustrative"
   | "undisclosed";
-export type Avail = "product" | "announced" | "retired";
+export type Avail = "product" | "announced" | "retired" | "research";
 export type Field<T = number | string | null> = {
   v: T;
   st: Status;
@@ -91,6 +91,21 @@ export const CHAIN_CASES = data.chainCases as unknown as ChainCase[];
 export const CHAIN_CTX = data.chainCtx;
 export const GROQ_CTX = data.groqCtx;
 export const CEREBRAS_CTX = data.cerebrasCtx;
+export const SN40L_CTX = data.sn40lCtx;
+/** Parts quoted but not modelled (a figure the model needs is not disclosed). */
+export const OTHER_PART_RECORDS = data.otherParts as unknown as (Omit<
+  PartRecord,
+  "layout"
+> & { also?: string[] })[];
+/** The in-memory compute chip of chapter 9. */
+export const IMC_RECORDS = data.imc as unknown as Record<
+  string,
+  Omit<PartRecord, "layout">
+>;
+export const CHOICE = data.choice as unknown as Record<string, [string, Fmt]>;
+export const BITS = data.bits;
+export const EDGE_DEVICES = data.edgeDevices;
+export const ACT_BYTES = data.actBytes;
 
 export type PartId =
   | "h100"
@@ -101,7 +116,11 @@ export type PartId =
   | "wse-3"
   | "wse-3t"
   | "groqchip"
-  | "groq3";
+  | "groq3"
+  | "sn40l"
+  | "gc2"
+  | "blackhole"
+  | "m4";
 export type ModelId = "llama3-8b" | "llama3-70b" | "llama2-70b";
 export type Fmt = "bf16" | "fp8" | "int8";
 export type ChainCase = {
@@ -829,9 +848,10 @@ export function lpuCapacity(
 // Validation
 // ---------------------------------------------------------------------------
 
+export type BandKind = "capacity" | "throughput" | "latency";
 export type Check = {
   id: string;
-  kind: "capacity" | "throughput" | "latency";
+  kind: BandKind | "speculative";
   label: string;
   published: number;
   model: number;
@@ -930,6 +950,25 @@ export function validation(): Check[] {
     c8.tok_s_user,
     "cerebras-inference",
   );
+  const n = P("sn40l-sockets");
+  const s8 = decode("sn40l", "llama3-8b", "bf16", 1, SN40L_CTX, n);
+  add(
+    "sn40l-8b-tps",
+    "latency",
+    "16 SN40L sockets, Llama 3.1 8B, BF16: tokens/s per user vs the bound",
+    P("sn40l-8b-tps"),
+    s8.tok_s_user,
+    "sn40l",
+  );
+  const s70 = decode("sn40l", "llama3-70b", "bf16", 1, SN40L_CTX, n);
+  add(
+    "sn40l-70b-tps",
+    "speculative",
+    "16 SN40L sockets, Llama 3.1 70B, BF16, speculative decoding: tokens/s per user vs the one-token-per-step bound",
+    P("sn40l-70b-tps"),
+    s70.tok_s_user,
+    "sn40l",
+  );
   return rows;
 }
 
@@ -937,6 +976,7 @@ const OVERHEAD_MODEL: Record<string, ModelId> = {
   "groq-70b-tps": "llama2-70b",
   "cerebras-70b-tps": "llama3-70b",
   "cerebras-8b-tps": "llama3-8b",
+  "sn40l-8b-tps": "llama3-8b",
 };
 
 export function impliedOverhead(checkId: string): {
@@ -960,13 +1000,10 @@ export function impliedOverhead(checkId: string): {
 }
 
 export function band(): Record<
-  Check["kind"],
+  BandKind,
   { min: number; max: number; n: number }
 > {
-  const out = {} as Record<
-    Check["kind"],
-    { min: number; max: number; n: number }
-  >;
+  const out = {} as Record<BandKind, { min: number; max: number; n: number }>;
   for (const kind of ["capacity", "throughput", "latency"] as const) {
     const rs = validation()
       .filter((r) => r.kind === kind)
@@ -978,4 +1015,649 @@ export function band(): Record<
 
 export function illustrative(key: string): number {
   return ILLUSTRATIVE[key]!.v;
+}
+
+// ---------------------------------------------------------------------------
+// Chapter 6: reconfigurable dataflow
+// ---------------------------------------------------------------------------
+
+export type OpKind =
+  | "vector"
+  | "matmul"
+  | "scores"
+  | "values"
+  | "attention"
+  | "ethernet";
+export type LayerOp = { name: string; kind: OpKind; w: number; out: number };
+
+export function layerOps(mid: ModelId): LayerOp[] {
+  const s = shape(mid);
+  const d = s.d,
+    ffn = s.ffn;
+  const kvd = s.kv_heads * s.head_dim;
+  return [
+    { name: "RMSNorm", kind: "vector", w: 0, out: d },
+    { name: "QKV", kind: "matmul", w: d * (d + 2 * kvd), out: d + 2 * kvd },
+    { name: "scores QK^T", kind: "scores", w: 0, out: 0 },
+    { name: "softmax, x V", kind: "values", w: 0, out: d },
+    { name: "attention out", kind: "matmul", w: d * d, out: d },
+    { name: "residual add", kind: "vector", w: 0, out: d },
+    { name: "RMSNorm", kind: "vector", w: 0, out: d },
+    { name: "MLP up and gate", kind: "matmul", w: d * 2 * ffn, out: 2 * ffn },
+    { name: "SiLU x gate", kind: "vector", w: 0, out: ffn },
+    { name: "MLP down", kind: "matmul", w: ffn * d, out: d },
+    { name: "residual add", kind: "vector", w: 0, out: d },
+  ];
+}
+
+export type TrafficOp = {
+  i: number;
+  name: string;
+  kind: OpKind;
+  w_bytes: number;
+  act_bytes: number;
+  kv_bytes: number;
+  bytes: number;
+  flops: number;
+  t: number;
+};
+export type Traffic = {
+  ops: TrafficOp[];
+  bytes: number;
+  flops: number;
+  t: number;
+};
+
+export function layerTraffic(
+  pid: PartId,
+  mid: ModelId,
+  fmt: Fmt,
+  tokens: number,
+  seqs: number,
+  ctx: number,
+  causal: boolean,
+  fused: boolean,
+): Traffic {
+  const s = shape(mid);
+  const b = FORMATS[fmt];
+  const kvb = kvBytesPerElem(fmt);
+  const d = s.d,
+    h = s.heads;
+  const kvd = s.kv_heads * s.head_dim;
+  const avg = causal ? ctx / 2 : ctx;
+  const bw = fval(pid, "off_bw") as number;
+  const pk = peak(pid, fmt).flops as number;
+  const kvRead = seqs * ctx * kvd * kvb;
+  const ops = layerOps(mid);
+  const out: TrafficOp[] = [];
+  let prev = d;
+  let totBytes = 0.0;
+  let totFlops = 0.0;
+  let tSum = 0.0;
+  ops.forEach((o, i) => {
+    const wbytes = o.w * b;
+    const width = o.kind === "scores" ? h * avg : o.out;
+    let kv = 0.0;
+    let flops = 0.0;
+    if (o.kind === "matmul") flops = 2 * o.w * tokens;
+    if (o.kind === "scores") {
+      kv = kvRead;
+      flops = 2 * tokens * d * avg;
+    }
+    if (o.kind === "values") {
+      kv = kvRead;
+      flops = 2 * tokens * d * avg;
+    }
+    if (o.name === "QKV") kv = kv + tokens * 2 * kvd * kvb;
+    let act: number;
+    if (fused) {
+      act = 0.0;
+      if (i === 0) act = act + tokens * d * ACT_BYTES;
+      if (i === ops.length - 1) act = act + tokens * d * ACT_BYTES;
+    } else {
+      act = (prev + width) * tokens * ACT_BYTES;
+    }
+    const nbytes = wbytes + act + kv;
+    const tMem = nbytes / bw;
+    const tComp = flops / pk;
+    const t = tMem >= tComp ? tMem : tComp;
+    out.push({
+      i,
+      name: o.name,
+      kind: o.kind,
+      w_bytes: wbytes,
+      act_bytes: act,
+      kv_bytes: kv,
+      bytes: nbytes,
+      flops,
+      t,
+    });
+    totBytes = totBytes + nbytes;
+    totFlops = totFlops + flops;
+    tSum = tSum + t;
+    prev = width;
+  });
+  let tLayer: number;
+  if (fused) {
+    const tm = totBytes / bw;
+    const tc = totFlops / pk;
+    tLayer = tm >= tc ? tm : tc;
+  } else {
+    tLayer = tSum;
+  }
+  return { ops: out, bytes: totBytes, flops: totFlops, t: tLayer };
+}
+
+export type DataflowStep = {
+  i: number;
+  name: string;
+  kind: OpKind;
+  u_bytes: number;
+  u_t: number;
+  f_bytes: number;
+  f_t: number;
+  u_op: number;
+  f_op: number;
+};
+
+export function dataflowSteps(
+  pid: PartId,
+  mid: ModelId,
+  fmt: Fmt,
+  tokens: number,
+  seqs: number,
+  ctx: number,
+  causal: boolean,
+): DataflowStep[] {
+  const u = layerTraffic(pid, mid, fmt, tokens, seqs, ctx, causal, false);
+  const f = layerTraffic(pid, mid, fmt, tokens, seqs, ctx, causal, true);
+  const bw = fval(pid, "off_bw") as number;
+  const pk = peak(pid, fmt).flops as number;
+  const out: DataflowStep[] = [];
+  let ub = 0.0;
+  let ut = 0.0;
+  let fb = 0.0;
+  let ff = 0.0;
+  for (let i = 0; i < u.ops.length; i++) {
+    const uo = u.ops[i]!;
+    const fo = f.ops[i]!;
+    ub = ub + uo.bytes;
+    ut = ut + uo.t;
+    fb = fb + fo.bytes;
+    ff = ff + fo.flops;
+    const tm = fb / bw;
+    const tc = ff / pk;
+    out.push({
+      i,
+      name: uo.name,
+      kind: uo.kind,
+      u_bytes: ub,
+      u_t: ut,
+      f_bytes: fb,
+      f_t: tm >= tc ? tm : tc,
+      u_op: uo.bytes,
+      f_op: fo.bytes,
+    });
+  }
+  return out;
+}
+
+export type Tiers = {
+  weights: number;
+  sram: number;
+  hbm: number;
+  ddr: number;
+  sram_layers: number;
+  hbm_models: number;
+  ddr_models: number;
+  switch_s: number;
+};
+
+export function tiers(
+  pid: PartId,
+  mid: ModelId,
+  fmt: Fmt,
+  sockets: number,
+): Tiers {
+  const s = shape(mid);
+  const b = FORMATS[fmt];
+  const w = s.params * b;
+  const layer = s.per_layer * b;
+  const sram = sockets * (fval(pid, "sram_bytes") as number);
+  const hbm = sockets * (fval(pid, "off_bytes") as number);
+  const ddr = sockets * (fval(pid, "ddr_bytes") as number);
+  return {
+    weights: w,
+    sram,
+    hbm,
+    ddr,
+    sram_layers: Math.floor(sram / layer),
+    hbm_models: Math.floor(hbm / w),
+    ddr_models: Math.floor(ddr / w),
+    switch_s: w / (sockets * (fval(pid, "ddr_bw") as number)),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Chapter 7: a mesh of small cores
+// ---------------------------------------------------------------------------
+
+export type MeshOp = {
+  name: string;
+  kind: OpKind;
+  bytes: number;
+  per_core: number;
+  fits_core: boolean;
+  flops: number;
+  t: number;
+  i: number;
+};
+export type MeshLayer = {
+  ops: MeshOp[];
+  t: number;
+  t_dram: number;
+  t_eth: number;
+  core_sram: number;
+  cores: number;
+  cards: number;
+  layer_per_core: number;
+  layer_fits: boolean;
+  tok_s_user: number;
+};
+
+export function meshLayer(
+  pid: PartId,
+  mid: ModelId,
+  fmt: Fmt,
+  batch: number,
+  ctx: number,
+  cards: number,
+): MeshLayer {
+  const s = shape(mid);
+  const b = FORMATS[fmt];
+  const kvb = kvBytesPerElem(fmt);
+  const kvd = s.kv_heads * s.head_dim;
+  const cores = fval(pid, "units") as number;
+  const coreSram = (fval(pid, "sram_bytes") as number) / cores;
+  const bw = fval(pid, "off_bw") as number;
+  const pk = peak(pid, fmt).flops as number;
+  const link = (fval(pid, "c2c_bidir") as number) / 2;
+  const g = layerGemms(mid);
+  const arBytes =
+    cards === 1 ? 0.0 : ((2 * (cards - 1)) / cards) * batch * s.d * ACT_BYTES;
+
+  const gemm = (x: Gemm): Omit<MeshOp, "i"> => {
+    const wc = (x.k * x.n * b) / cards;
+    const fl = (2 * x.k * x.n * batch) / cards;
+    const tm = wc / bw;
+    const tc = fl / pk;
+    return {
+      name: x.name,
+      kind: "matmul",
+      bytes: wc,
+      per_core: wc / cores,
+      fits_core: wc / cores <= coreSram,
+      flops: fl,
+      t: tm >= tc ? tm : tc,
+    };
+  };
+
+  const kv = (2 * batch * ctx * kvd * kvb) / cards;
+  const afl = (2 * 2 * s.d * ctx * batch) / cards;
+  const am = kv / bw;
+  const ac = afl / pk;
+  const attn: Omit<MeshOp, "i"> = {
+    name: "attention",
+    kind: "attention",
+    bytes: kv,
+    per_core: kv / cores,
+    fits_core: kv / cores <= coreSram,
+    flops: afl,
+    t: am >= ac ? am : ac,
+  };
+  const ar: Omit<MeshOp, "i"> = {
+    name: "all-reduce",
+    kind: "ethernet",
+    bytes: arBytes,
+    per_core: 0.0,
+    fits_core: true,
+    flops: 0.0,
+    t: arBytes / link,
+  };
+  const pre = [
+    gemm(g[0]!),
+    attn,
+    gemm(g[1]!),
+    ar,
+    gemm(g[2]!),
+    gemm(g[3]!),
+    ar,
+  ];
+  let t = 0.0;
+  let eth = 0.0;
+  let dram = 0.0;
+  let perCore = 0.0;
+  const ops: MeshOp[] = pre.map((o, i) => {
+    const op = { ...o, i };
+    t = t + op.t;
+    if (op.kind === "ethernet") eth = eth + op.t;
+    else dram = dram + op.t;
+    if (op.kind === "matmul") perCore = perCore + op.per_core;
+    return op;
+  });
+  return {
+    ops,
+    t,
+    t_dram: dram,
+    t_eth: eth,
+    core_sram: coreSram,
+    cores,
+    cards,
+    layer_per_core: perCore,
+    layer_fits: perCore <= coreSram,
+    tok_s_user: 1 / (t * s.layers),
+  };
+}
+
+export type MeshStep = {
+  i: number;
+  name: string;
+  kind: OpKind;
+  bytes: number;
+  per_core: number;
+  fits_core: boolean;
+  t_op: number;
+  t: number;
+};
+
+export function meshSteps(
+  pid: PartId,
+  mid: ModelId,
+  fmt: Fmt,
+  batch: number,
+  ctx: number,
+  cards: number,
+): MeshStep[] {
+  const m = meshLayer(pid, mid, fmt, batch, ctx, cards);
+  let t = 0.0;
+  return m.ops.map((o) => {
+    t = t + o.t;
+    return {
+      i: o.i,
+      name: o.name,
+      kind: o.kind,
+      bytes: o.bytes,
+      per_core: o.per_core,
+      fits_core: o.fits_core,
+      t_op: o.t,
+      t,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Chapter 8: FPGAs and edge NPUs
+// ---------------------------------------------------------------------------
+
+/** A field of a modelled part or of a quoted one. */
+export function anyval(pid: string, key: string): number | null {
+  const r =
+    PART_RECORDS.find((p) => p.id === pid) ??
+    OTHER_PART_RECORDS.find((p) => p.id === pid);
+  if (!r) throw new Error(`unknown part ${pid}`);
+  const f = r.fields[key];
+  return f === undefined ? null : (f.v as number | null);
+}
+
+/** The name of a modelled, quoted or in-memory part. */
+export function anyName(pid: string): string {
+  const r =
+    PART_RECORDS.find((p) => p.id === pid) ??
+    OTHER_PART_RECORDS.find((p) => p.id === pid) ??
+    IMC_RECORDS[pid];
+  if (!r) throw new Error(`unknown part ${pid}`);
+  return r.name;
+}
+
+export type EdgeBound = {
+  bits: number;
+  weights: number;
+  bytes: number;
+  t_mem: number;
+  t_comp: number | null;
+  t: number;
+  tok_s: number;
+  fits: boolean | null;
+  j_per_token: number | null;
+};
+
+export function edgeBound(
+  pid: string,
+  mid: ModelId,
+  bits: number,
+  ctx: number,
+): EdgeBound {
+  const s = shape(mid);
+  const wb = bits / 8;
+  const kvb = wb < 1 ? 1.0 : wb;
+  const weights = s.params * wb;
+  const nbytes = s.matmul_params * wb + ctx * s.kv_elems_per_token * kvb;
+  const bw = anyval(pid, "off_bw") as number;
+  const tMem = nbytes / bw;
+  const flops = 2 * s.matmul_params + s.attn_flops_per_pos * ctx;
+  const pk = bits <= 8 ? anyval(pid, "peak_int8") : anyval(pid, "peak_bf16");
+  const tComp = pk === null ? null : flops / pk;
+  const t = tComp === null || tMem >= tComp ? tMem : tComp;
+  const cap = anyval(pid, "off_bytes");
+  const pw = anyval(pid, "power_w");
+  return {
+    bits,
+    weights,
+    bytes: nbytes,
+    t_mem: tMem,
+    t_comp: tComp,
+    t,
+    tok_s: 1 / t,
+    fits:
+      cap === null ? null : weights + ctx * s.kv_elems_per_token * kvb <= cap,
+    j_per_token: pw === null ? null : pw * t,
+  };
+}
+
+export type EdgeStep = EdgeBound & { i: number };
+
+export function edgeSteps(pid: string, mid: ModelId, ctx: number): EdgeStep[] {
+  return BITS.map((bits, i) => ({ ...edgeBound(pid, mid, bits, ctx), i }));
+}
+
+// ---------------------------------------------------------------------------
+// Chapter 9: analogue in-memory compute
+// ---------------------------------------------------------------------------
+
+export function ival(key: string): number {
+  return IMC_RECORDS.hermes!.fields[key]!.v as number;
+}
+
+export type ImcGemm = {
+  name: string;
+  k: number;
+  n: number;
+  tiles: number;
+  util: number;
+};
+export type ImcLayer = {
+  gemms: ImcGemm[];
+  layer_tiles: number;
+  layer_chips: number;
+  tiles: number;
+  chips: number;
+  psums: number;
+  lat: number;
+  t_layer: number;
+  t_token: number;
+  e_token: number;
+  weights: number;
+  capacity: number;
+};
+
+export function imcLayer(mid: ModelId, phase: number): ImcLayer {
+  const s = shape(mid);
+  const rows = ival("rows");
+  const cols = ival("cols");
+  const cores = ival("cores");
+  const lat = phase === 1 ? ival("lat_1p") : ival("lat_4p");
+  const eCore = (phase === 1 ? ival("e_1p") : ival("e_4p")) / cores;
+  const gemms: ImcGemm[] = [];
+  let layerTiles = 0;
+  let psums = 0;
+  for (const g of layerGemms(mid)) {
+    const tk = Math.ceil(g.k / rows);
+    const tn = Math.ceil(g.n / cols);
+    const tiles = tk * tn;
+    layerTiles += tiles;
+    psums += (tk - 1) * g.n;
+    gemms.push({
+      name: g.name,
+      k: g.k,
+      n: g.n,
+      tiles,
+      util: (g.k * g.n) / (tiles * rows * cols),
+    });
+  }
+  const head = Math.ceil(s.d / rows) * Math.ceil(s.vocab / cols);
+  const tiles = s.layers * layerTiles + head;
+  const chips = Math.ceil(tiles / cores);
+  const tLayer = 4 * lat;
+  const tToken = s.layers * tLayer + lat;
+  return {
+    gemms,
+    layer_tiles: layerTiles,
+    layer_chips: layerTiles / cores,
+    tiles,
+    chips,
+    psums,
+    lat,
+    t_layer: tLayer,
+    t_token: tToken,
+    e_token: tiles * eCore,
+    weights: s.matmul_params,
+    capacity: chips * ival("weights"),
+  };
+}
+
+export type ImcStep = {
+  i: number;
+  name: string;
+  gemm: number;
+  tiles: number;
+  t: number;
+  e: number;
+};
+
+export function imcSteps(mid: ModelId, phase: number): ImcStep[] {
+  const m = imcLayer(mid, phase);
+  const eCore = (phase === 1 ? ival("e_1p") : ival("e_4p")) / ival("cores");
+  const order: [string, number][] = [
+    ["program", -1],
+    ["QKV", 0],
+    ["attention", -1],
+    ["attention out", 1],
+    ["MLP up and gate", 2],
+    ["MLP down", 3],
+  ];
+  const out: ImcStep[] = [];
+  let t = 0.0;
+  let e = 0.0;
+  order.forEach(([name, gi], i) => {
+    let tiles = 0;
+    if (gi >= 0) {
+      tiles = m.gemms[gi]!.tiles;
+      t = t + m.lat;
+      e = e + tiles * eCore;
+    }
+    out.push({ i, name, gemm: gi, tiles, t, e });
+  });
+  return out;
+}
+
+export function adcBits(inBits: number, wBits: number, rows: number): number {
+  return inBits + wBits + Math.ceil(Math.log2(rows));
+}
+
+// ---------------------------------------------------------------------------
+// Chapter 10: every family on the same decoder model
+// ---------------------------------------------------------------------------
+
+export type Choice = {
+  i: number;
+  family: string;
+  name: string;
+  part: string;
+  fmt: Fmt;
+  chips: number;
+  where: string;
+  t_decode: number;
+  t_layer: number;
+  tok_s_user: number;
+  t_prefill: number;
+  j_per_token: number | null;
+  util: number | null;
+  bound: string;
+  basis: Basis;
+};
+
+export function choose(
+  mid: ModelId,
+  batch: number,
+  ctx: number,
+  prompt: number,
+): Choice[] {
+  const s = shape(mid);
+  return FAMILIES.map((f, i) => {
+    const [pid, fmt] = CHOICE[f.id]!;
+    if (pid === "hermes") {
+      const m = imcLayer(mid, 1);
+      const ops = 2 * s.matmul_params;
+      const tPf = (prompt + 4 * s.layers) * m.lat;
+      return {
+        i,
+        family: f.id,
+        name: f.name,
+        part: pid,
+        fmt,
+        chips: m.chips,
+        where: "in-array",
+        t_decode: m.t_token,
+        t_layer: m.t_layer,
+        tok_s_user: 1 / m.t_token,
+        t_prefill: tPf,
+        j_per_token: m.e_token,
+        util: ops / (m.t_token * m.chips * ival("tops_1p")),
+        bound: "crossbar-only",
+        basis: "dense",
+      };
+    }
+    const p = pid as PartId;
+    const d = decode(p, mid, fmt, batch, ctx);
+    const pf = prefill(p, mid, fmt, prompt);
+    const pk = peak(p, fmt);
+    return {
+      i,
+      family: f.id,
+      name: f.name,
+      part: pid,
+      fmt,
+      chips: d.chips,
+      where: d.where,
+      t_decode: d.t_step,
+      t_layer: d.t_step / s.layers,
+      tok_s_user: d.tok_s_user,
+      t_prefill: pf.t,
+      j_per_token: d.j_per_token,
+      util:
+        pk.flops === null ? null : d.flops / (d.t_step * d.chips * pk.flops),
+      bound: d.bound,
+      basis: pk.basis,
+    };
+  });
 }

@@ -83,7 +83,7 @@ async function main(): Promise<void> {
       "AI Accelerators Explained",
       formatValue(lookup("part.wse-3.sram_bw"), "rate"),
       formatValue(lookup("part.h100.off_bw"), "rate"),
-      "data-coming",
+      'href="/learn/10-choosing"',
       ...SWITCH,
     ]),
     checkPage(base, "/specs", [
@@ -92,6 +92,9 @@ async function main(): Promise<void> {
       'data-status="reported"',
       'data-status="undisclosed"',
       formatValue(lookup("part.groq3.sram_bw"), "rate"),
+      formatValue(lookup("part.sn40l.off_bw"), "rate"),
+      'id="part-hermes"',
+      'id="part-sn50"',
       "2026-10-15",
     ]),
     checkPage(base, "/about", [
@@ -99,6 +102,7 @@ async function main(): Promise<void> {
       "Validation band",
       'data-check="cerebras-70b-wafers"',
       'data-check="mlperf-h100"',
+      'data-check="sn40l-8b-tps"',
     ]),
     checkPage(
       base,

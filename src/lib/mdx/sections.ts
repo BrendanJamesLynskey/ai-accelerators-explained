@@ -41,15 +41,36 @@ export const SECTIONS = [
     summary:
       "No caches and no DRAM: a static schedule over SRAM-only chips chained into a pipeline, why one token comes back fast, and what holding a model in SRAM costs.",
   },
-] as const;
-
-/** Chapters written in the next part of the site: listed, not linked, until they exist. */
-export const COMING = [
-  "Reconfigurable dataflow (SambaNova RDU, Graphcore IPU)",
-  "Meshes of small cores (Tenstorrent-class)",
-  "FPGAs and edge NPUs",
-  "In-memory and analogue compute",
-  "Choosing: every family on the same decoder layer",
+  {
+    slug: "06-reconfigurable-dataflow",
+    title: "Reconfigurable dataflow",
+    summary:
+      "SambaNova's RDU and Graphcore's IPU: a layer fused into one on-chip pipeline instead of a kernel per operation, three tiers of memory, and bulk-synchronous tiles.",
+  },
+  {
+    slug: "07-meshes-of-cores",
+    title: "Meshes of small cores",
+    summary:
+      "Tenstorrent's Blackhole: many small cores with their own SRAM on a network-on-chip, GDDR6 beside them, and Ethernet built into the chip to join cards.",
+  },
+  {
+    slug: "08-fpgas-and-npus",
+    title: "FPGAs and edge NPUs",
+    summary:
+      "A few watts and a phone's memory: why one user's decode is a bandwidth problem, how narrower weights help, and where FPGAs win on latency and custom numerics.",
+  },
+  {
+    slug: "09-in-memory-compute",
+    title: "In-memory and analogue compute",
+    summary:
+      "Weights that never move: a decoder layer on phase-change crossbars, and what it costs in capacity, ADCs and precision.",
+  },
+  {
+    slug: "10-choosing",
+    title: "Choosing",
+    summary:
+      "The same decoder model on every family, side by side: decode and prefill bounds, energy, chips and utilisation, where each wins and loses, and what they are converging on.",
+  },
 ] as const;
 
 export type SectionSlug = (typeof SECTIONS)[number]["slug"];

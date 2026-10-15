@@ -182,7 +182,11 @@
 .eq-panel[data-hl~="fill"] .hl-fill,
 .eq-panel[data-hl~="lam"] .hl-lam,
 .eq-panel[data-hl~="die"] .hl-die,
-.eq-panel[data-hl~="stage"] .hl-stage {
+.eq-panel[data-hl~="stage"] .hl-stage,
+.eq-panel[data-hl~="act"] .hl-act,
+.eq-panel[data-hl~="eth"] .hl-eth,
+.eq-panel[data-hl~="bits"] .hl-bits,
+.eq-panel[data-hl~="adc"] .hl-adc {
   background-color: rgb(0 114 178 / 0.18);
   border-color: #0072b2;
 }

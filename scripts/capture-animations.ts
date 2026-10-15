@@ -64,6 +64,36 @@ const CLIPS: Clip[] = [
     fps: 8,
     stride: 2,
   },
+  {
+    name: "dataflow",
+    path: "/learn/06-reconfigurable-dataflow",
+    widget: "dataflow-widget",
+    fps: 2,
+  },
+  {
+    name: "mesh",
+    path: "/learn/07-meshes-of-cores",
+    widget: "mesh-widget",
+    fps: 2,
+  },
+  {
+    name: "edge",
+    path: "/learn/08-fpgas-and-npus",
+    widget: "edge-widget",
+    fps: 2,
+  },
+  {
+    name: "crossbar",
+    path: "/learn/09-in-memory-compute",
+    widget: "crossbar-widget",
+    fps: 1,
+  },
+  {
+    name: "choose",
+    path: "/learn/10-choosing",
+    widget: "choose-widget",
+    fps: 1,
+  },
 ];
 
 /** `ONLY=power,cost pnpm animations` records just those clips. */

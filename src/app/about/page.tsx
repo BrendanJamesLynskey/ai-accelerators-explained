@@ -149,25 +149,33 @@ export default function AboutPage(): JSX.Element {
 
         <h2 id="validation">Validation band</h2>
         <p>
-          The model is checked against {rows.length} published figures it does
-          not take as inputs, of three kinds. <strong>Capacity</strong>: how
-          many chips a model needs. Cerebras&apos;s &ldquo;as few as four
-          systems&rdquo; for a 16-bit 70B model and one system for 20B match the
-          model exactly; Groq&apos;s Llama 2 70B demonstration used{" "}
-          {trim(b.capacity.max, 3)} times the model&apos;s minimum, which is a
-          floor (no room for activations, and whole nodes of eight).{" "}
-          <strong>Throughput</strong>: MLPerf&apos;s eight H100s reached{" "}
+          The model is checked against {rows.length - 1} published figures it
+          does not take as inputs, of three kinds, and shows one more outside
+          the band. <strong>Capacity</strong>: how many chips a model needs.
+          Cerebras&apos;s &ldquo;as few as four systems&rdquo; for a 16-bit 70B
+          model and one system for 20B match the model exactly; Groq&apos;s
+          Llama 2 70B demonstration used {trim(b.capacity.max, 3)} times the
+          model&apos;s minimum, which is a floor (no room for activations, and
+          whole nodes of eight). <strong>Throughput</strong>: MLPerf&apos;s
+          eight H100s reached{" "}
           {formatValue(lookup("val.mlperf-h100.ratio"), "pct")} of the compute
           ceiling, which counts only the output tokens&apos; weight matmuls and
           leaves out prefill, attention and the serving stack.{" "}
-          <strong>Latency</strong>: for one user on SRAM designs, the published
-          speeds are {trim(b.latency.min * 100, 2)}% to{" "}
-          {trim(b.latency.max * 100, 2)}% of the bandwidth bound. That miss is
-          the model&apos;s main limit, and the chapters say so: once the weights
-          are in SRAM, bandwidth stops being what limits one user, and the
-          per-layer latency the sources do not break down takes over. The
+          <strong>Latency</strong>: one user&apos;s published tokens per second
+          against the bound. The SN40L, reading its weights from HBM, reached{" "}
+          {formatValue(lookup("val.sn40l-8b-tps.ratio"), "pct")} of it. The SRAM
+          designs reached {trim(b.latency.min * 100, 2)}% to{" "}
+          {trim((lookup("val.groq-70b-tps.ratio") as number) * 100, 2)}%. That
+          miss is the model&apos;s main limit, and the chapters say so: once the
+          weights are in SRAM, bandwidth stops being what limits one user, and
+          the per-layer latency the sources do not break down takes over. The
           published speeds imply {v("overhead.cerebras-8b-tps.per_layer")} to{" "}
-          {v("overhead.groq-70b-tps.per_layer")} per layer beyond the bound.
+          {v("overhead.groq-70b-tps.per_layer")} per layer beyond the bound. The
+          row marked <em>speculative</em> (the SN40L paper&apos;s 70B figure,{" "}
+          {trim(lookup("val.sn40l-70b-tps.ratio") as number, 3)} times the
+          bound) is kept out of the band: speculative decoding emits several
+          tokens per read of the weights, which a one-token-per-step bound does
+          not model.
         </p>
         <ValidationTable />
 

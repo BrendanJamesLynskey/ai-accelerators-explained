@@ -1,0 +1,68 @@
+<MeshWidget>
+  <Eq
+    label="One layer on c cards takes each weight matrix's share over the DRAM bandwidth, or its flops over the peak if that is longer, plus two all-reduces, each moving two times c minus one over c of the activations over the Ethernet rate"
+    tex="\begin{aligned} t_{\text{layer}} = {} & \sum_{\text{matrices}} \max\!\left(\frac{\htmlClass{hl-mem}{W_j / c}}{\beta_{\text{DRAM}}}, \frac{\htmlClass{hl-comp}{F_j / c}}{P}\right) \\ & + 2\cdot\htmlClass{hl-eth}{\frac{2(c-1)}{c}\,\frac{b\,d\,a}{\beta_{\text{eth}}}} \end{aligned}"
+  />
+</MeshWidget>
+
+<Layer kind="concept">
+
+The seventh family builds a chip out of many small, ordinary processors. Tenstorrent's Blackhole has <V of="part.blackhole.units" fmt="int" /> **Tensix cores** on a network-on-chip, each a compute unit with its own SRAM and a few small RISC-V cores whose job is to move data: one fetches, others compute, another sends results on. Tenstorrent's page describes the cores as including "a compute unit, network-on-chip, local cache and 'baby RISC-V' cores, coalescing in powerful data movement through the chip". The chip also carries <V of="part.blackhole.riscv" fmt="int" /> "big RISC-V" cores that can run Linux. Data movement is programmed explicitly, core by core: a mixed schedule, neither a GPU's run-time warps nor a static whole-graph schedule.
+
+Two things set it apart from the families so far. Its memory is modest: <V of="part.blackhole.sram_bytes" fmt="bytes" /> of SRAM spread over the cores, and <V of="part.blackhole.off_bytes" fmt="bytes" /> of GDDR6 at <V of="part.blackhole.off_bw" fmt="rate" />, the memory of a graphics card rather than HBM. And its scale-out is built into the chip: the p150a card has four 800G Ethernet ports, <V of="part.blackhole.c2c_bidir" fmt="rate" /> in both directions, so cards connect directly to each other without a separate network card or switch chip.
+
+The animation runs one decoder layer of Llama 3.1 70B in FP8, split over <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).cards" fmt="int" /> cards by tensor parallelism, the fewest whose GDDR6 holds it. On each matrix step every card streams its third of the weights from GDDR6, spread over its cores: the layer's matrices come to <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).layer_per_core" fmt="bytes" /> per core, more than a core's <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).core_sram" fmt="bytes" /> of SRAM, so a layer cannot stay resident and the cores refill on every token. After the attention output and the MLP down projection, the cards add their partial results with an all-reduce over Ethernet. At batch 1 that moves a few kilobytes, so its bandwidth time is <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).t_eth" fmt="time" /> of the layer's <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).t" fmt="time" />. What it really costs is latency, which Tenstorrent does not state, so the model leaves it out.
+
+</Layer>
+
+<PartTable
+  ids="blackhole"
+  fields="peak_fp8,sram_bytes,off_bytes,off_bw,c2c_bidir,hop_s,units,riscv,clock_hz,power_w"
+/>
+
+## Where a mesh wins and loses
+
+Per card the bound is set by GDDR6: one decode step of Llama 3.1 8B in FP8 on one card is <V of="decode(blackhole,llama3-8b,fp8,1,1024).t_step" fmt="time" />, <V of="decode(blackhole,llama3-8b,fp8,1,1024).tok_s_user" fmt="num" /> tokens per second for one user, against <V of="decode(h100,llama3-8b,fp8,1,1024).tok_s_user" fmt="num" /> on an H100, whose HBM is <V of="part.h100.off_bw" fmt="rate" />. Splitting over more cards divides that time almost exactly, because each card reads less and the Ethernet carries only activations: with eight cards, the 70B layer takes <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,8).t" fmt="time" />. The board's power is <V of="part.blackhole.power_w" fmt="watts" />, so at the bound one token of the 8B model costs <V of="decode(blackhole,llama3-8b,fp8,1,1024).j_per_token" fmt="num" /> J on one card at batch 1.
+
+The design's case is not one fast chip but an open, uniform one: the same core everywhere, an open-source software stack ("granting developers full access to the metal", Tenstorrent says), and Ethernet as the only interconnect from one card to a whole cluster. Tenstorrent publishes no Blackhole LLM speeds in the sources used, so this chapter has no validation row: the numbers are bounds.
+
+<DecodeTable cases="blackhole:llama3-8b:fp8:1:1024 blackhole:llama3-70b:fp8:1:1024 blackhole:llama3-70b:fp8:1:1024:8 h100:llama3-8b:fp8:1:1024" />
+
+<Callout kind="illustrative">
+
+The 12 × 10 grid is a drawing of 120 cores; Tenstorrent gives the count, not the layout. The peak rate is Tenstorrent's block FP8 figure, used as the FP8 rate (dense or sparse is not stated). Each card's four 800G ports are taken as one 400 GB/s pipe each way; a real all-reduce adds latency per hop that the vendor does not state. Weights are spread evenly over the cores; the compiler decides the real placement.
+
+</Callout>
+
+<Layer kind="maths">
+
+With $c$ cards, each matrix $W_j$ and its flops $F_j$ divide by $c$. After the attention output and the MLP down projection, each card holds a partial sum of $b \cdot d$ activations of $a$ bytes; a ring all-reduce sends each card $2(c-1)/c$ of that, so
+
+$$
+t_{\text{layer}} = \sum_j \max\!\left(\frac{W_j / c}{\beta_{\text{DRAM}}}, \frac{F_j / c}{P}\right) + t_{\text{attention}} + 2 \cdot \frac{2(c-1)}{c} \cdot \frac{b\,d\,a}{\beta_{\text{eth}}} + 2\,(\text{latency}).
+$$
+
+The bandwidth part of the all-reduce grows with the batch $b$; the latency part, left out here, grows with the number of hops.
+
+</Layer>
+
+<Layer kind="code">
+
+One weight matrix's share on one card, cut from [`src/lib/accel/model.ts`](https://github.com/BrendanJamesLynskey/ai-accelerators-explained/blob/main/src/lib/accel/model.ts):
+
+```ts
+const wc = (x.k * x.n * b) / cards;
+const fl = (2 * x.k * x.n * batch) / cards;
+const tm = wc / bw;
+const tc = fl / pk;
+```
+
+</Layer>
+
+<Callout kind="deeper">
+
+- Tensor parallelism and its all-reduces on GPUs: [Serving, chapter 9](https://llm-inference-explained.vercel.app/learn/09-parallelism); scale-out networks: [AI Racks Explained, chapter 5](https://ai-racks-explained.vercel.app/learn/05-scale-out-network); the memory hierarchy a mesh replaces: [GPU Kernels Explained, chapter 1](https://gpu-kernels-explained.vercel.app/learn/01-memory-hierarchy); the block formats such chips compute in: [Numerics Explained, chapter 4](https://numerics-explained.vercel.app/learn/04-formats-zoo).
+- NVIDIA GPU series, for the switch-based alternative: [NVSwitch: point-to-point becomes a fabric](https://brendanjameslynskey.github.io/NVIDIA_GPU_05_NVLink_NVSwitch/#slide-07).
+- Tenstorrent, [Blackhole product page](https://tenstorrent.com/hardware/blackhole) (specifications table); Sze, Chen, Yang and Emer, [Efficient processing of deep neural networks](https://arxiv.org/abs/1703.09039), 2017, on spatial architectures.
+
+</Callout>
