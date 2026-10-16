@@ -21,12 +21,13 @@ import {
   SYSTOLIC_URL,
   repoFile,
 } from "@/lib/site";
+import { withShare } from "@/lib/share";
 
-export const metadata = {
+export const metadata = withShare("/about", {
   title: "About",
   description:
     "What AI Accelerators Explained's model computes, how every specification is sourced and dated, the model's validation band against published figures, and how the animations are checked.",
-};
+});
 
 const A =
   "focus-ring rounded text-accent underline underline-offset-2 dark:text-indigo-300";

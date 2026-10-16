@@ -10,10 +10,11 @@ import type { ReactNode } from "react";
 
 import { SiteHeader } from "@/components/ui/SiteHeader";
 import { SITE_URL } from "@/lib/site";
+import { withShare } from "@/lib/share";
 
 import "./globals.css";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withShare("/", {
   metadataBase: new URL(SITE_URL),
   title: {
     default: "AI Accelerators Explained",
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   },
   description:
     "The families of AI silicon (GPUs, systolic designs, wafer-scale engines, compiler-scheduled chips and more), each run on the same decoder layer by a tested model, with every specification sourced and dated.",
-};
+});
 
 export default function RootLayout({
   children,
