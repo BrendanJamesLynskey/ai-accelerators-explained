@@ -110,6 +110,7 @@ export const ACT_BYTES = data.actBytes;
 export type PartId =
   | "h100"
   | "b200"
+  | "mi355x"
   | "tpu-v6e"
   | "tpu-7x"
   | "trn2"
@@ -450,6 +451,56 @@ export function throughputCeiling(
 ): number {
   const s = shape(mid);
   return (chips * (peak(pid, fmt).flops as number)) / (2 * s.matmul_params);
+}
+
+/** `peak` for bf16/fp8/int8; for "fp4" the part's dense 4-bit rate, if stated. */
+export function peakAny(pid: PartId, fmt: Fmt | "fp4"): number | null {
+  if (fmt === "fp4") return fval(pid, "peak_fp4");
+  return peak(pid, fmt).flops;
+}
+
+export function sampleFlops(
+  mid: ModelId,
+  nIn: number,
+  nOut: number,
+): { prefill: number; decode: number; total: number } {
+  const s = shape(mid);
+  const w = 2 * s.matmul_params;
+  const a = s.attn_flops_per_pos;
+  const prefill = w * nIn + a * ((nIn * nIn) / 2);
+  const decode = w * nOut + a * nOut * (nIn + nOut / 2);
+  return { prefill, decode, total: prefill + decode };
+}
+
+export type MlperfCeiling = {
+  ceiling: number;
+  decodeOnly: number;
+  prefillShare: number;
+  flops: { prefill: number; decode: number; total: number };
+  peak: number;
+  chips: number;
+};
+
+export function mlperfCeiling(
+  pid: PartId,
+  mid: ModelId,
+  fmt: Fmt | "fp4",
+  chips: number,
+  nIn: number,
+  nOut: number,
+): MlperfCeiling {
+  const pk = peakAny(pid, fmt) as number;
+  const f = sampleFlops(mid, nIn, nOut);
+  const full = ((chips * pk) / f.total) * nOut;
+  const decodeOnly = (chips * pk) / (2 * shape(mid).matmul_params);
+  return {
+    ceiling: full,
+    decodeOnly,
+    prefillShare: f.prefill / f.total,
+    flops: f,
+    peak: pk,
+    chips,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -906,14 +957,39 @@ export function validation(): Check[] {
     capg,
     "nextplatform-groq",
   );
-  const ceilH100 = throughputCeiling("h100", "llama2-70b", "fp8", 8);
+  const nIn = P("mlperf-input-mean");
+  const nOut = P("mlperf-tokens-per-sample");
+  const ceilH100 = mlperfCeiling(
+    "h100",
+    "llama2-70b",
+    "fp8",
+    8,
+    nIn,
+    nOut,
+  ).ceiling;
   add(
     "mlperf-h100",
     "throughput",
-    "8x H100, Llama 2 70B, FP8, MLPerf Offline tokens/s vs the compute ceiling",
+    "8x H100, Llama 2 70B, FP8, MLPerf Offline tokens/s vs the compute ceiling (prefill included)",
     P("mlperf-h100"),
     ceilH100,
     "mlperf-h100",
+  );
+  const ceilGb200 = mlperfCeiling(
+    "b200",
+    "llama2-70b",
+    "fp4",
+    P("mlperf-gb200-chips"),
+    nIn,
+    nOut,
+  ).ceiling;
+  add(
+    "mlperf-gb200",
+    "throughput",
+    "4x GB200 (Blackwell), Llama 2 70B, FP4, MLPerf Offline tokens/s vs the compute ceiling (prefill included)",
+    P("mlperf-gb200"),
+    ceilGb200,
+    "mlperf-gb200",
   );
   const g = decode(
     "groqchip",
@@ -997,6 +1073,131 @@ export function impliedOverhead(checkId: string): {
     extra: tPub - tMod,
     per_layer: (tPub - tMod) / layers,
   };
+}
+
+// ---------------------------------------------------------------------------
+// The per-layer latency floor of the SRAM machines (chapters 4, 5 and 10)
+// ---------------------------------------------------------------------------
+
+export const FLOOR_CHECKS = [
+  "groq-70b-tps",
+  "cerebras-70b-tps",
+  "cerebras-8b-tps",
+  "sn40l-8b-tps",
+] as const;
+export type FloorCheck = (typeof FLOOR_CHECKS)[number];
+export const FLOOR_LABEL: Record<FloorCheck, string> = {
+  "groq-70b-tps": "Groq, 576 chips, Llama 2 70B",
+  "cerebras-70b-tps": "Cerebras, 4 CS-3, Llama 3.1 70B",
+  "cerebras-8b-tps": "Cerebras, 1 CS-3, Llama 3.1 8B",
+  "sn40l-8b-tps": "SambaNova, 16 SN40L, Llama 3.1 8B",
+};
+
+export type FloorRow = {
+  id: FloorCheck;
+  label: string;
+  layers: number;
+  t_published: number;
+  t_model: number;
+  extra: number;
+  per_layer: number;
+  tauLoo: number;
+  tPred: number;
+  ratioPred: number;
+  ratioBound: number;
+  floorShare: number;
+};
+export type FloorFit = {
+  tau: number;
+  min: number;
+  max: number;
+  rows: FloorRow[];
+  worstPred: number;
+  worstBound: number;
+};
+
+export function floorFit(): FloorFit {
+  const rows: FloorRow[] = [];
+  for (const cid of FLOOR_CHECKS) {
+    const o = impliedOverhead(cid);
+    const layers = shape(OVERHEAD_MODEL[cid]!).layers;
+    rows.push({
+      id: cid,
+      label: FLOOR_LABEL[cid],
+      layers,
+      ...o,
+      tauLoo: 0,
+      tPred: 0,
+      ratioPred: 0,
+      ratioBound: 0,
+      floorShare: 0,
+    });
+  }
+  const n = rows.length;
+  let sum = 0;
+  for (const r of rows) sum += r.per_layer;
+  const tau = sum / n;
+  for (const r of rows) {
+    let o = 0;
+    let k = 0;
+    for (const x of rows)
+      if (x.id !== r.id) {
+        o += x.per_layer;
+        k += 1;
+      }
+    const tauLoo = o / k;
+    const tPred = r.t_model + r.layers * tauLoo;
+    r.tauLoo = tauLoo;
+    r.tPred = tPred;
+    r.ratioPred = r.t_published / tPred;
+    r.ratioBound = r.t_published / r.t_model;
+    r.floorShare = (r.layers * tauLoo) / tPred;
+  }
+  let lo = Infinity;
+  let hi = -Infinity;
+  let worstPred = 0;
+  let worstBound = 0;
+  for (const r of rows) {
+    lo = Math.min(lo, r.per_layer);
+    hi = Math.max(hi, r.per_layer);
+    worstPred = Math.max(worstPred, Math.max(r.ratioPred, 1 / r.ratioPred));
+    worstBound = Math.max(worstBound, r.ratioBound);
+  }
+  return { tau, min: lo, max: hi, rows, worstPred, worstBound };
+}
+
+export type FloorMode = "fitted" | "own" | "none";
+export type PathStep = {
+  i: number;
+  layer: number;
+  t: number;
+  work: number;
+  floor: number;
+  layers: number;
+};
+
+export function criticalPathSteps(
+  checkId: FloorCheck,
+  mode: FloorMode,
+): PathStep[] {
+  const fit = floorFit();
+  const r = fit.rows.find((x) => x.id === checkId)!;
+  const L = r.layers;
+  const work = r.t_model / L;
+  const floor = { fitted: r.tauLoo, own: r.per_layer, none: 0.0 }[mode];
+  const out: PathStep[] = [
+    { i: 0, layer: 0, t: 0.0, work: 0.0, floor: 0.0, layers: L },
+  ];
+  let t = 0.0;
+  let wAcc = 0.0;
+  let fAcc = 0.0;
+  for (let i = 1; i <= L; i++) {
+    t = t + work + floor;
+    wAcc = wAcc + work;
+    fAcc = fAcc + floor;
+    out.push({ i, layer: i, t, work: wAcc, floor: fAcc, layers: L });
+  }
+  return out;
 }
 
 export function band(): Record<

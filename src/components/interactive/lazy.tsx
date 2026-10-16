@@ -63,3 +63,7 @@ export const ChooseWidget = dynamic(() => import("./ChooseWidget"), {
   ssr: false,
   loading: loading("animation"),
 });
+export const PathWidget = dynamic(() => import("./PathWidget"), {
+  ssr: false,
+  loading: loading("animation"),
+});

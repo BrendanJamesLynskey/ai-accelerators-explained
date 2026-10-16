@@ -18,11 +18,13 @@ Prefill is the opposite case. A 2,048-token prompt reuses each weight 2,048 time
 </Layer>
 
 <PartTable
-  ids="h100,b200"
-  fields="peak_bf16,peak_fp8,off_bytes,off_bw,sram_bytes,c2c_bidir,power_w"
+  ids="h100,b200,mi355x"
+  fields="peak_bf16,peak_fp8,peak_fp4,off_bytes,off_bw,sram_bytes,c2c_bidir,power_w"
 />
 
 The B200 here is the one in NVIDIA's GB200 NVL72 rack, with the same figures as [AI Racks Explained](https://ai-racks-explained.vercel.app/learn/02-the-package): dense rates are half the GB200 page's sparse figures for each of a superchip's two GPUs, memory is the superchip's 372 GB split two ways (186 GB), and power is Blackwell's maximum board power (TGP), "up to 1,200W" ([NVIDIA's Blackwell Ultra blog](https://developer.nvidia.com/blog/inside-nvidia-blackwell-ultra-the-chip-powering-the-ai-factory-era/), Table 2), a GPU figure like the H100's 700 W TDP. The air-cooled HGX B200 is rated lower: half its page's 72 PFLOPS sparse FP8 over eight GPUs is 4.5 PFLOPS dense per GPU ([HGX](https://www.nvidia.com/en-us/data-center/hgx/)).
+
+AMD's Instinct MI355X is the other GPU line, and on paper it matches the B200 on rate and bandwidth: <V of="part.mi355x.peak_bf16" fmt="flops" /> BF16 and <V of="part.mi355x.peak_fp8" fmt="flops" /> FP8 dense, <V of="part.mi355x.off_bw" fmt="rate" /> of HBM3E, with a 256 MB last-level cache in front of it ([AMD's specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html), launched June 2025). Where it differs is capacity: <V of="part.mi355x.off_bytes" fmt="bytes" /> per GPU, against the B200's <V of="part.b200.off_bytes" fmt="bytes" />. Llama 3.1 70B in FP8 with a 4,096-token context fits on <V of="placement(mi355x,llama3-70b,fp8,1,4096).chips" fmt="int" /> of either; the difference shows in how much KV cache, so how big a batch, one GPU holds: <V of="maxBatch(mi355x,llama3-70b,fp8,4096,1)" fmt="int" /> sequences on an MI355X against <V of="maxBatch(b200,llama3-70b,fp8,4096,1)" fmt="int" /> on a B200 at that context. Its 1,400 W is a typical board power, so energy per token is not like for like with the B200's maximum. AMD's link figures (seven Infinity Fabric links at 153 GB/s) do not say whether they are per direction, so the model leaves the MI355X's chip-to-chip bandwidth blank.
 
 ## What every other family is compared with
 

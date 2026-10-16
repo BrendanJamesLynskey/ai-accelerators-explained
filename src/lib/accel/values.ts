@@ -51,6 +51,8 @@ import {
   shape,
   throughputCeiling,
   validation,
+  floorFit,
+  mlperfCeiling,
   waferYield,
   wafersNeeded,
 } from "./model";
@@ -137,6 +139,26 @@ function build(): Record<string, unknown> {
     imc[id] = f;
   }
   t.imc = imc;
+  // brief 42: the latency floor and the MLPerf ceilings with prefill
+  const f = floorFit();
+  const rowsById: Record<string, unknown> = {};
+  for (const r of f.rows) rowsById[r.id] = r;
+  t.floor = { ...f, row: rowsById };
+  const P = (k: string) => PUBLISHED[k]!.v;
+  const nIn = P("mlperf-input-mean");
+  const nOut = P("mlperf-tokens-per-sample");
+  const h100 = mlperfCeiling("h100", "llama2-70b", "fp8", 8, nIn, nOut);
+  t.mlperf = {
+    h100: { ...h100, decodeRatio: P("mlperf-h100") / h100.decodeOnly },
+    gb200: mlperfCeiling(
+      "b200",
+      "llama2-70b",
+      "fp4",
+      P("mlperf-gb200-chips"),
+      nIn,
+      nOut,
+    ),
+  };
   return t;
 }
 

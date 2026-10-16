@@ -10,6 +10,7 @@ import { Layer } from "@/components/interactive/Layer";
 import {
   ChainWidget,
   ChooseWidget,
+  PathWidget,
   CrossbarWidget,
   DataflowWidget,
   EdgeWidget,
@@ -53,4 +54,5 @@ export const mdxComponents: NonNullable<MDXRemoteProps["components"]> = {
   EdgeWidget,
   CrossbarWidget,
   ChooseWidget,
+  PathWidget,
 };

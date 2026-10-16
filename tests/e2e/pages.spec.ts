@@ -289,16 +289,19 @@ test("the specs page marks every status and dates every source", async ({
   await expect(page.locator("#part-wse-3t")).toContainText("announced");
   await expect(page.locator("#part-groq3")).toContainText("announced");
   await expect(page.locator("#part-groqchip")).toContainText("retired");
-  await expect(page.locator("[data-claim]")).toHaveCount(7);
+  await expect(page.locator("[data-claim]")).toHaveCount(11);
   await expect(page.locator("#part-sn50")).toContainText("announced");
   await expect(page.locator("#part-v70")).toContainText("retired");
+  await expect(page.locator("#part-v80")).toContainText("Alveo V80");
+  await expect(page.locator("#part-mi355x")).toContainText("MI355X");
   await expect(page.locator("#part-hermes")).toContainText("research");
   await expect(page.locator("#families + div [data-family]")).toHaveCount(8);
 });
 
 test("the about page shows the validation band", async ({ page }) => {
   await page.goto("/about#validation");
-  await expect(page.locator("[data-check]")).toHaveCount(9);
+  await expect(page.locator("[data-check]")).toHaveCount(10);
+  await expect(page.locator("[data-check='mlperf-gb200']")).toBeVisible();
   await expect(
     page.locator("[data-check='cerebras-70b-wafers'] td").last(),
   ).toHaveText("1");

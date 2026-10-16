@@ -94,6 +94,12 @@ const CLIPS: Clip[] = [
     widget: "choose-widget",
     fps: 1,
   },
+  {
+    name: "latency-floor",
+    path: "/learn/10-choosing",
+    widget: "path-widget",
+    fps: 6,
+  },
 ];
 
 /** `ONLY=power,cost pnpm animations` records just those clips. */

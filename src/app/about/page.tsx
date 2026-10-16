@@ -158,11 +158,16 @@ export default function AboutPage(): JSX.Element {
           model and one system for 20B match the model exactly; Groq&apos;s
           Llama 2 70B demonstration used {trim(b.capacity.max, 3)} times the
           model&apos;s minimum, which is a floor (no room for activations, and
-          whole nodes of eight). <strong>Throughput</strong>: MLPerf&apos;s
-          eight H100s reached{" "}
-          {formatValue(lookup("val.mlperf-h100.ratio"), "pct")} of the compute
-          ceiling, which counts only the output tokens&apos; weight matmuls and
-          leaves out prefill, attention and the serving stack.{" "}
+          whole nodes of eight). <strong>Throughput</strong>: MLPerf Offline
+          runs against a compute ceiling that counts everything a sample costs
+          (the prefill of a{" "}
+          {formatValue(lookup("pub.mlperf-input-mean"), "num")}-token mean
+          prompt, measured from the benchmark&apos;s dataset, the{" "}
+          {formatValue(lookup("pub.mlperf-tokens-per-sample"), "num")} output
+          tokens and attention): eight H100s reached{" "}
+          {formatValue(lookup("val.mlperf-h100.ratio"), "pct")} of it and four
+          GB200s (MLPerf v5.1, FP4){" "}
+          {formatValue(lookup("val.mlperf-gb200.ratio"), "pct")}.{" "}
           <strong>Latency</strong>: one user&apos;s published tokens per second
           against the bound. The SN40L, reading its weights from HBM, reached{" "}
           {formatValue(lookup("val.sn40l-8b-tps.ratio"), "pct")} of it. The SRAM
@@ -173,7 +178,14 @@ export default function AboutPage(): JSX.Element {
           the per-layer latency the sources do not break down takes over. The
           published speeds imply {v("overhead.cerebras-8b-tps.per_layer")} to{" "}
           {v("overhead.groq-70b-tps.per_layer")} per layer beyond the bound. The
-          row marked <em>speculative</em> (the SN40L paper&apos;s 70B figure,{" "}
+          model now adds that as one fitted term, a floor per layer of{" "}
+          {v("floor.tau")} on average: fitted on three systems and tested on the
+          fourth, it predicts every SRAM system within{" "}
+          {trim(lookup("floor.worstPred") as number, 3)}× in time per token (the
+          bound alone misses by up to{" "}
+          {trim(lookup("floor.worstBound") as number, 3)}×). It is four points,
+          so the term is an order of magnitude, not a law. The row marked{" "}
+          <em>speculative</em> (the SN40L paper&apos;s 70B figure,{" "}
           {trim(lookup("val.sn40l-70b-tps.ratio") as number, 3)} times the
           bound) is kept out of the band: speculative decoding emits several
           tokens per read of the weights, which a one-token-per-step bound does

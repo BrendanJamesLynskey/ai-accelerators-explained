@@ -4,11 +4,12 @@ An animated explainer of the families of AI silicon, each run on the same
 work: a Llama decoder's prefill and decode steps. For every family the
 question is the same: **where do the weights and activations live, what
 moves on each step, and who decides when it moves** (the hardware at run
-time, or the compiler ahead of time)? GPUs are the baseline; then systolic
+time, or the compiler ahead of time)? GPUs (NVIDIA H100 and B200, AMD MI355X) are the baseline; then systolic
 designs (Google TPU, AWS Trainium), wafer-scale engines (Cerebras) and
 compiler-scheduled SRAM-only chips (Groq's LPU), reconfigurable dataflow
 (SambaNova's RDU, Graphcore's IPU), meshes of small cores (Tenstorrent),
-FPGAs and edge NPUs, and in-memory compute, then every family side by side on
+FPGAs (an HBM Alveo V80, published FPGA LLM designs, the HLS and FINN
+flows) and edge NPUs, and in-memory compute, then every family side by side on
 the same decoder model. Every chapter is built around an animation, every frame of every
 animation is computed by a small **accelerator model** whose TypeScript port
 matches its Python reference exactly, and every specification carries its
@@ -79,6 +80,10 @@ versions sit beside them in [`docs/media/`](docs/media/).
 | ------------------------------------ | -------------------------------- |
 | ![Crossbar](docs/media/crossbar.gif) | ![Choose](docs/media/choose.gif) |
 
+| The per-layer floor (chapter 10)                                                              |
+| --------------------------------------------------------------------------------------------- |
+| ![One token's critical path on an SRAM machine, layer by layer](docs/media/latency-floor.gif) |
+
 ## The model
 
 [`accel_model/`](accel_model/) is a **teaching model**, not a simulator of
@@ -140,22 +145,28 @@ the numbers the chapters use and the validation band to
 
 ### Validation band
 
-Eight published figures the model does not take as inputs, in three kinds,
+Nine published figures the model does not take as inputs, in three kinds,
 plus one shown outside the band ([results.md](results.md#validation-band)):
 
 - **Capacity** (3 checks, ratio 1.0 to 1.91): Cerebras's "as few as four
   systems" for a 16-bit 70B model and one for 20B match exactly; Groq's
   Llama 2 70B demonstration used 576 chips, 1.91 times the model's minimum of
   301, which is a floor (no room for activations, and whole nodes).
-- **Throughput** (1 check, 0.19): MLPerf Inference v4.0, eight H100s on
-  Llama 2 70B Offline, against the compute ceiling for output tokens.
+- **Throughput** (2 checks): MLPerf Inference Llama 2 70B Offline against a
+  compute ceiling that counts prefill (a mean prompt of 222.33 tokens,
+  measured from the benchmark's dataset with
+  [`scripts/mlperf_input_length.py`](scripts/mlperf_input_length.py)),
+  attention and the 294.45 output tokens: eight H100s (v4.0, FP8)
+  0.334, four GB200s (v5.1, FP4)
+  0.314. Without prefill the H100 ratio was 0.19.
 - **Latency** (4 checks, 0.0013 to 0.58): one user's tokens per second
   against the bandwidth bound. The SN40L paper's Llama 3.1 8B figure, read
   from HBM, is 0.58 of it. The SRAM designs (Groq, Cerebras) are 0.0013 to
-  0.082: this is where the model misses, and the chapters say so: once the
-  weights are in SRAM, bandwidth is not what limits one user. Their published
-  speeds imply 17 to 38 µs per layer beyond the bound, which the sources do
-  not break down.
+  0.082. Their published speeds imply 12.5 to 38.2 µs per layer
+  beyond the bound, and the model now adds that as a **per-layer floor**
+  (chapter 10): fitted on three systems and tested on the fourth, the bound
+  plus the floor is within 1.84x of every SRAM system's published time
+  per token, where the bound alone misses by up to 771x.
 - **Speculative** (shown, not in the band): the SN40L paper's 70B figure is
   2.25 times the one-token-per-step bound, because it used speculative
   decoding.

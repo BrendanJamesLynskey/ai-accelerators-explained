@@ -16,6 +16,7 @@ const ANIMATIONS = [
   ["/learn/08-fpgas-and-npus", "edge-widget"],
   ["/learn/09-in-memory-compute", "crossbar-widget"],
   ["/learn/10-choosing", "choose-widget"],
+  ["/learn/10-choosing", "path-widget"],
 ] as const;
 
 async function step(fig: Locator): Promise<number> {

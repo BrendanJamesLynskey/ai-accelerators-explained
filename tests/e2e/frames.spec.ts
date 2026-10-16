@@ -8,6 +8,7 @@ import { expect, test, type Locator } from "@playwright/test";
 
 import fx from "../fixtures/accel_fixtures.json";
 
+import type { FloorFit, PathStep } from "@/lib/accel/model";
 import {
   chainCaption,
   chooseCaption,
@@ -18,6 +19,7 @@ import {
   partShort,
   mapCaption,
   mxuCaption,
+  pathCaption,
   sweepCaption,
   waferCaption,
 } from "@/lib/accel/captions";
@@ -318,6 +320,16 @@ test("edge: Llama 3.1 8B at every width on the M4, then the V70", async ({
   await expect(fig.getByTestId("caption")).toHaveText(
     edgeCaption(v[4]!, 7, "AMD Alveo V70"),
   );
+  await change(fig, () =>
+    fig.getByRole("radio", { name: "AMD Alveo V80" }).click(),
+  );
+  const h = steps("v80");
+  for (const s of [0, 4, 6]) {
+    await show(fig, s);
+    await expect(fig.getByTestId("caption")).toHaveText(
+      edgeCaption(h[s]!, 7, "AMD Alveo V80"),
+    );
+  }
 });
 
 test("crossbar: one 8B layer, then the 70B model in the precise mode", async ({
@@ -379,4 +391,33 @@ test("choose: every family on Llama 3.1 70B, then 8B", async ({ page }) => {
   await expect(fig.getByTestId("caption")).toHaveText(
     chooseCaption(small[6]!, 8, "Llama 3.1 8B", partShort(small[6]!.part)),
   );
+});
+
+test("the per-layer floor: one token's critical path", async ({ page }) => {
+  await page.goto("/learn/10-choosing");
+  const fig = page.getByTestId("path-widget");
+  const fit = fx.floor as unknown as FloorFit;
+  const path = (id: string, mode: string) =>
+    fx.path.find((c) => c.id === id && c.mode === mode)!
+      .out as unknown as PathStep[];
+  const row = (id: string) => fit.rows.find((r) => r.id === id)!;
+  // default: Cerebras 70B, the floor fitted on the other three
+  const a = path("cerebras-70b-tps", "fitted");
+  for (const s of [0, 1, 40, a.length - 1]) {
+    await show(fig, s);
+    await expect(fig.getByTestId("caption")).toHaveText(
+      pathCaption(a[s]!, row("cerebras-70b-tps"), "fitted"),
+    );
+  }
+  await change(fig, () => fig.getByRole("radio", { name: "SN40L 8B" }).click());
+  await change(fig, () =>
+    fig.getByRole("radio", { name: "none (the bound)" }).click(),
+  );
+  const b = path("sn40l-8b-tps", "none");
+  for (const s of [0, 16, b.length - 1]) {
+    await show(fig, s);
+    await expect(fig.getByTestId("caption")).toHaveText(
+      pathCaption(b[s]!, row("sn40l-8b-tps"), "none"),
+    );
+  }
 });
