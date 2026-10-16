@@ -8,12 +8,13 @@ import Link from "next/link";
 
 import { SECTIONS } from "@/lib/mdx/sections";
 import { GOOGLE_TPU_HUB, KERNELS_URL, NVIDIA_GPU_HUB } from "@/lib/site";
+import { withShare } from "@/lib/share";
 
-export const metadata = {
+export const metadata = withShare("/learn", {
   title: "Learn",
   description:
     "Chapters on the families of AI chips, each running the same decoder layer and built around an animation driven by a tested model.",
-};
+});
 
 const A =
   "focus-ring rounded text-accent underline underline-offset-2 dark:text-indigo-300";

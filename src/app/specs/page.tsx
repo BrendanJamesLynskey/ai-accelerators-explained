@@ -24,12 +24,13 @@ import {
   type Field,
 } from "@/lib/accel/model";
 import { repoFile } from "@/lib/site";
+import { withShare } from "@/lib/share";
 
-export const metadata = {
+export const metadata = withShare("/specs", {
   title: "Specifications",
   description:
     "Every figure AI Accelerators Explained uses, with its status (stated, derived, reported, not disclosed), its source and the date it was read.",
-};
+});
 
 const A =
   "focus-ring rounded text-accent underline underline-offset-2 dark:text-indigo-300";

@@ -1,5 +1,7 @@
+import type { Route } from "next";
 import Link from "next/link";
 
+import { CheckedStrip, StartButton } from "@/components/ui/Landing";
 import { FamilyBars } from "@/components/viz/FamilyBars";
 import { SECTIONS } from "@/lib/mdx/sections";
 import { formatValue, lookup, type Fmt } from "@/lib/accel/values";
@@ -29,32 +31,21 @@ export default function HomePage(): JSX.Element {
       <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
         The families of AI silicon, on the same work.
       </h1>
-      <div className="mt-8 grid items-center gap-8 md:grid-cols-[1fr_minmax(0,22rem)]">
+      <div className="mt-6 grid items-start gap-8 md:grid-cols-[1fr_minmax(0,22rem)]">
         <div>
           <p className="max-w-2xl text-lg text-neutral-600 dark:text-neutral-300">
-            Every AI chip multiplies activations by weights. What separates a
-            GPU from a TPU, a wafer-scale engine or an LPU is where the weights
-            live, who decides when data moves, and how big the engines are. An
-            H100 reads its HBM at {v("part.h100.off_bw", "rate")}; a Cerebras
-            wafer reads its SRAM at {v("part.wse-3.sram_bw", "rate")}, but holds{" "}
-            {v("part.wse-3.sram_bytes", "bytes")}, so a 70B model needs{" "}
-            {v("placement(wse-3,llama3-70b,bf16,1,1024).chips", "int")} wafers
-            where it needs one GPU in 8-bit form.
+            An interactive comparison of the families of AI chips, from GPUs and
+            TPUs to wafer-scale and compiler-scheduled designs, running the same
+            decoder.
           </p>
-          <p className="mt-4 max-w-2xl text-neutral-600 dark:text-neutral-300">
-            Each chapter runs the same decoder on one family, with an animation
-            whose every frame comes from a small model tested against a Python
-            reference. Every specification carries its source and the date it
-            was read, announced parts are marked, vendor claims are quoted but
-            never used as inputs, and the model is checked against published
-            figures (
-            <Link href="/about#validation" className={LINK}>
-              its validation band
-            </Link>
-            ).
-          </p>
+          <div className="mt-6">
+            <StartButton href={`/learn/${SECTIONS[0]!.slug}` as Route} />
+          </div>
         </div>
-        <figure className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+        <figure
+          data-hero-figure
+          className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800"
+        >
           <FamilyBars />
           <figcaption className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
             Chips needed to hold Llama 3.1 70B and one 1,024-token KV cache, log
@@ -62,6 +53,37 @@ export default function HomePage(): JSX.Element {
           </figcaption>
         </figure>
       </div>
+      <CheckedStrip href="/about#validation">
+        Every specification carries its source and the date it was read, vendor
+        claims are never used as inputs, and the model is checked against
+        published capacity, throughput and latency figures.
+      </CheckedStrip>
+      <section aria-labelledby="learn-heading" className="mt-12">
+        <h2 id="learn-heading" className="text-xl font-semibold tracking-tight">
+          What you&apos;ll learn
+        </h2>
+        <p className="mt-4 max-w-2xl text-neutral-600 dark:text-neutral-300">
+          Every AI chip multiplies activations by weights. What separates a GPU
+          from a TPU, a wafer-scale engine or an LPU is where the weights live,
+          who decides when data moves, and how big the engines are. An H100
+          reads its HBM at {v("part.h100.off_bw", "rate")}; a Cerebras wafer
+          reads its SRAM at {v("part.wse-3.sram_bw", "rate")}, but holds{" "}
+          {v("part.wse-3.sram_bytes", "bytes")}, so a 70B model needs{" "}
+          {v("placement(wse-3,llama3-70b,bf16,1,1024).chips", "int")} wafers
+          where it needs one GPU in 8-bit form.
+        </p>
+        <p className="mt-4 max-w-2xl text-neutral-600 dark:text-neutral-300">
+          Each chapter runs the same decoder on one family, with an animation
+          whose every frame comes from a small model tested against a Python
+          reference. Every specification carries its source and the date it was
+          read, announced parts are marked, vendor claims are quoted but never
+          used as inputs, and the model is checked against published figures (
+          <Link href="/about#validation" className={LINK}>
+            its validation band
+          </Link>
+          ).
+        </p>
+      </section>
       <nav
         aria-label="Chapters"
         className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
