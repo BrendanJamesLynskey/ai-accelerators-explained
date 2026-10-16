@@ -12,6 +12,7 @@ import {
   SITE_NAME,
   SYSTOLIC_URL,
 } from "@/lib/site";
+import { HardwareWork } from "@/components/home/HardwareWork";
 
 const LINK =
   "focus-ring rounded underline decoration-accent/40 underline-offset-4 hover:decoration-accent";
@@ -141,6 +142,7 @@ export default function HomePage(): JSX.Element {
         </Link>
         .
       </p>
+      <HardwareWork />
       <p className="mt-12 text-sm text-neutral-600 dark:text-neutral-400">
         Part of the companion sites&apos; Hardware track, with{" "}
         <a href={KERNELS_URL} className={LINK}>
