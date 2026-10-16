@@ -170,8 +170,9 @@ plus one shown outside the band ([results.md](results.md#validation-band)):
 - Chapter 5 charges one hop of Groq's measured 722 ns for every hand-on and
   every all-reduce inside a stage; the Groq 3 chain has no hop time because
   the latency is not disclosed.
-- Energy per token for the B200 and the CS-3 uses a system share of stated
-  system power, not a chip figure.
+- Energy per token for the CS-3 uses a system share of stated system power,
+  not a chip figure. The B200 is the GB200 NVL72's (the same figures as AI
+  Racks Explained), with Blackwell's maximum board power (TGP), 1,200 W.
 - Chapter 6 draws a layer as eleven operations with 16-bit activations;
   unfused attention writes its score matrix to memory (a fused attention
   kernel would not). Chapter 7's 12 × 10 core grid is a drawing; Tenstorrent's
@@ -292,7 +293,7 @@ results.md            Every figure with its source and date, chapter numbers, va
 
 ## References
 
-- GPUs: NVIDIA, [H100](https://www.nvidia.com/en-us/data-center/h100/), [HGX](https://www.nvidia.com/en-us/data-center/hgx/), [DGX B200](https://www.nvidia.com/en-us/data-center/dgx-b200/), [Hopper in depth](https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/).
+- GPUs: NVIDIA, [H100](https://www.nvidia.com/en-us/data-center/h100/), [HGX](https://www.nvidia.com/en-us/data-center/hgx/), [GB200 NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/), [Blackwell Ultra blog](https://developer.nvidia.com/blog/inside-nvidia-blackwell-ultra-the-chip-powering-the-ai-factory-era/), [Hopper in depth](https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/).
 - Systolic designs: Google Cloud, [TPU architecture](https://cloud.google.com/tpu/docs/system-architecture-tpu-vm), [TPU v6e](https://cloud.google.com/tpu/docs/v6e), [TPU7x](https://cloud.google.com/tpu/docs/tpu7x); AWS Neuron, [Trainium2](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trainium2.html), [NeuronCore-v3](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/neuron-core-v3.html).
 - Wafer-scale: Cerebras, [WSE-3 Turbo](https://www.cerebras.ai/chip), [CS-4](https://www.cerebras.ai/system), [white paper](https://cdn.sanity.io/files/e4qjo92p/production/2d7fa58e3b820715664bcf42097e86c05070c161.pdf), [CS-3 datasheet](https://cdn.sanity.io/files/e4qjo92p/production/864133620041e5af418074842e42a669c137fa23.pdf), [CS-4 datasheet](https://cdn.sanity.io/files/e4qjo92p/production/bb028ae2422089dfbcc9fd2455c021f3625c7a75.pdf), [Cerebras Inference](https://www.cerebras.ai/blog/introducing-cerebras-inference-ai-at-instant-speed).
 - Compiler-scheduled: Abts et al., 2022 — _A Software-defined Tensor Streaming Multiprocessor for Large-scale Machine Learning_ (ISCA; [Groq's copy, archived](https://web.archive.org/web/20250612160012/https://groq.com/wp-content/uploads/2024/02/GroqISCAPaper2022_ASoftwareDefinedTensorStreamingMultiprocessorForLargeScaleMachineLearning-1.pdf)); Groq, [GroqChip product brief](https://web.archive.org/web/20250615145238/https://groq.com/wp-content/uploads/2022/10/GroqChip%E2%84%A2-Processor-Product-Brief-v1.5.pdf); NVIDIA, [Groq 3 LPX](https://www.nvidia.com/en-us/data-center/lpx/).

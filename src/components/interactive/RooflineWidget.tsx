@@ -77,7 +77,7 @@ export default function RooflineWidget({
   const bw = part(pid).off_bw as number;
   const g = s.group;
   const name = part(pid).name as string;
-  const short = name.replace("NVIDIA ", "").replace(" (HGX B200)", "");
+  const short = name.replace("NVIDIA ", "").replace(" (as in GB200 NVL72)", "");
 
   // the chart's scales: x = log10 intensity, y = log10 flop/s for g chips
   const yTop = Math.ceil(Math.log10(g * pk) + 0.2);
@@ -263,7 +263,7 @@ export default function RooflineWidget({
         value={
           s.j_per_token === null ? "not disclosed" : `${trim(s.j_per_token)} J`
         }
-        hint={pid === "b200" ? "system share of DGX power" : "at TDP"}
+        hint={pid === "b200" ? "at max board power (TGP)" : "at TDP"}
       />
     </div>
   );

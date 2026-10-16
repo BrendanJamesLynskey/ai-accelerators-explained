@@ -13,7 +13,7 @@ Every chapter ran the same decoder model on one family. This one puts them side 
 
 In the table, \* marks crossbar time only: attention, digital partial sums and chip-to-chip transfers are not counted (chapter 9). Utilisation is the share of the chips' peak rate a batch-1 decode step uses at the bound.
 
-Read the table as bounds, not benchmarks. For the designs that read their weights from DRAM the bound is close to what systems achieve: the MLPerf check put eight H100s at <V of="val.mlperf-h100.ratio" fmt="pct" /> of the compute ceiling, and the SN40L paper's 8B figure is <V of="val.sn40l-8b-tps.ratio" fmt="pct" /> of its bandwidth bound. For the SRAM designs it is not: the published per-user speeds of the wafer and the LPU chain are <V of="band.latency.min" fmt="pct" /> to <V of="val.groq-70b-tps.ratio" fmt="pct" /> of their bounds, because once the weights are in SRAM, bandwidth stops being the limit and per-layer latency, which the vendors do not break down, takes over. The full validation is below and on [the About page](/about#validation).
+Read the table as bounds, not benchmarks. For the designs that read their weights from DRAM the bounds land within a small factor of what systems achieve: the SN40L paper's 8B figure is <V of="val.sn40l-8b-tps.ratio" fmt="pct" /> of its bandwidth bound. The MLPerf check is looser: eight H100s reached <V of="val.mlperf-h100.ratio" fmt="pct" /> of a compute ceiling that counts only the output tokens' weight matmuls. MLPerf's output tokens per second also pay for the prefill of every sample's prompt, and for attention, which the ceiling leaves out, so the ratio understates how much of the hardware the system used; how much it understates is not computed here. For the SRAM designs the bound is far off: the published per-user speeds of the wafer and the LPU chain are <V of="band.latency.min" fmt="pct" /> to <V of="val.groq-70b-tps.ratio" fmt="pct" /> of their bounds, because once the weights are in SRAM, bandwidth stops being the limit and per-layer latency, which the vendors do not break down, takes over. The full validation is below and on [the About page](/about#validation).
 
 </Layer>
 
@@ -31,7 +31,7 @@ Read the table as bounds, not benchmarks. For the designs that read their weight
 
 **Edge NPUs and FPGAs** run on a few watts and the device's own memory: the 70B model needs <V of="choose(llama3-70b,1,1024,2048).6.chips" fmt="int" /> M4-class devices even at 8 bits, while the 8B model runs on one at <V of="choose(llama3-8b,1,1024,2048).6.tok_s_user" fmt="num" /> tokens per second at the bound. FPGAs win on fixed, predictable latency and exactly-sized numbers, not on large models.
 
-**In-memory compute** removes weight movement entirely and pays in capacity and precision: <V of="choose(llama3-70b,1,1024,2048).7.chips" fmt="int" /> research chips for the 70B model. It is a research direction, not a product family, in the sources used.
+**In-memory compute** removes weight movement entirely and pays in capacity and precision: <V of="choose(llama3-70b,1,1024,2048).7.chips" fmt="int" /> research chips for the 70B model. Companies have announced in-memory compute products for inference, both digital and analogue, but none of the sources used publishes the per-operation figures this model needs, so the chapter runs on a research chip; read it as a picture of the approach, not of any product.
 
 <ValidationTable />
 
@@ -46,7 +46,7 @@ The designs started far apart and are borrowing from each other.
 
 <Callout kind="illustrative">
 
-Each family is one or two representative parts, not the best of its kind; formats differ by what each vendor publishes (FP8 where given, BF16 for the wafer and the RDU, INT8 for the LPU and the NPU). Energy is TDP times the bound's time, shown only where a power figure is given; for SRAM designs, whose real speed is far below their bound, it is understated by the same factor. The CS-3 and B200 power figures are system shares, not chip TDPs ([the specifications](/specs)). Bounds assume full stated bandwidth and dense peak rates; Cerebras's rate is its sparse figure, so its compute term is a floor.
+Each family is one or two representative parts, not the best of its kind; formats differ by what each vendor publishes (FP8 where given, BF16 for the wafer and the RDU, INT8 for the LPU and the NPU). Energy is TDP times the bound's time, shown only where a power figure is given; for SRAM designs, whose real speed is far below their bound, it is understated by the same factor. The CS-3 power figure is a system share, not a chip TDP; the B200's is its maximum board power ([the specifications](/specs)). Bounds assume full stated bandwidth and dense peak rates; Cerebras's rate is its sparse figure, so its compute term is a floor.
 
 </Callout>
 

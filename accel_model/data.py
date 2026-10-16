@@ -37,14 +37,19 @@ SOURCES: dict[str, dict[str, str]] = {
         "https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/",
         "vendor technical blog",
     ),
+    "gb200-page": _s(
+        "NVIDIA GB200 NVL72 product page, Specifications, GB200 Superchip column ('Specification in sparse. Dense is one-half sparse spec shown')",
+        "https://www.nvidia.com/en-us/data-center/gb200-nvl72/",
+        "vendor product page",
+    ),
+    "bwu-blog": _s(
+        "Inside NVIDIA Blackwell Ultra: The Chip Powering the AI Factory Era (NVIDIA Technical Blog), Table 2",
+        "https://developer.nvidia.com/blog/inside-nvidia-blackwell-ultra-the-chip-powering-the-ai-factory-era/",
+        "vendor technical blog",
+    ),
     "hgx-page": _s(
         "NVIDIA HGX platform page, HGX B200 specifications ('Specification in Sparse. Dense is 1/2 sparse spec shown')",
         "https://www.nvidia.com/en-us/data-center/hgx/",
-        "vendor product page",
-    ),
-    "dgx-b200-page": _s(
-        "NVIDIA DGX B200 product page, Specifications",
-        "https://www.nvidia.com/en-us/data-center/dgx-b200/",
         "vendor product page",
     ),
     # systolic designs
@@ -264,7 +269,7 @@ GRAIN_LABELS = ("a few large engines", "tens to hundreds of cores", "hundreds of
 
 FAMILIES: list[dict[str, Any]] = [
     {
-        "id": "gpu", "name": "GPUs", "chapter": 2, "example": "NVIDIA H100, B200",
+        "id": "gpu", "name": "GPUs", "chapter": 2, "example": "NVIDIA H100, B200", "also": ["hgx-page"],
         "placement": _f(0, "spec", "hopper-blog", "weights in HBM; a 50 MB L2 cache 'reduces trips to HBM3'"),
         "schedule": _f(0, "spec", "hopper-blog", "warps scheduled by the SMs at run time; L2 is a hardware-managed cache"),
         "grain": _f(1, "spec", "hopper-blog", "132 SMs per H100 SXM5, each with tensor cores"),
@@ -338,20 +343,20 @@ PARTS: dict[str, dict[str, Any]] = {
         },
     },
     "b200": {
-        "id": "b200", "name": "NVIDIA B200 (HGX B200)", "family": "gpu", "layout": "tensor",
-        "avail": _f("product", "spec", "hgx-page", "'HGX B300 and HGX B200 shipping now'"),
+        "id": "b200", "name": "NVIDIA B200 (as in GB200 NVL72)", "family": "gpu", "layout": "tensor",
+        "avail": _f("product", "spec", "gb200-page", "GB200 NVL72 product page with specifications"),
         "fields": {
-            "peak_bf16": _f(2.25e15, "derived", "hgx-page", "HGX B200 FP16/BF16 36 PFLOPS sparse for 8 GPUs: dense per GPU = 36 / 2 / 8"),
-            "peak_fp8": _f(4.5e15, "derived", "hgx-page", "HGX B200 FP8/FP6 72 PFLOPS sparse for 8 GPUs: dense per GPU = 72 / 2 / 8"),
-            "peak_int8": _f(4.5e15, "derived", "hgx-page", "HGX B200 INT8 72 POPS sparse for 8 GPUs: dense per GPU = 72 / 2 / 8"),
-            "sram_bytes": _f(None, "undisclosed", "hgx-page", "L2 size not given in the sources used"),
-            "sram_bw": _f(None, "undisclosed", "hgx-page", "not given in the sources used"),
-            "off_bytes": _f(180e9, "derived", "dgx-b200-page", "1,440 GB total GPU memory for 8 GPUs"),
-            "off_bw": _f(8e12, "derived", "dgx-b200-page", "64 TB/s HBM3e bandwidth for 8 GPUs"),
-            "c2c_bidir": _f(1.8e12, "spec", "hgx-page", "NVLink GPU-to-GPU bandwidth 1.8 TB/s"),
-            "hop_s": _f(None, "undisclosed", "hgx-page", "NVLink latency not given in the sources used"),
-            "power_w": _f(1787.5, "derived", "dgx-b200-page", "~14.3 kW max system power for 8 GPUs: a system share per GPU (includes CPUs, network, fans), not a GPU TDP"),
-            "units": _f(None, "undisclosed", "hgx-page", "SM count not given in the sources used"),
+            "peak_bf16": _f(2.5e15, "derived", "gb200-page", "GB200 Superchip FP16/BF16 10 PFLOPS sparse for 2 GPUs: dense per GPU = 10 / 2 / 2"),
+            "peak_fp8": _f(5e15, "spec", "bwu-blog", "Table 2, Blackwell: FP8 dense 5 PetaFLOPS (GB200 Superchip: 20 PFLOPS sparse for 2 GPUs, the same)"),
+            "peak_int8": _f(5e15, "derived", "gb200-page", "GB200 Superchip INT8 20 POPS sparse for 2 GPUs: dense per GPU = 20 / 2 / 2"),
+            "sram_bytes": _f(None, "undisclosed", "bwu-blog", "L2 size not given in the sources used"),
+            "sram_bw": _f(None, "undisclosed", "bwu-blog", "not given in the sources used"),
+            "off_bytes": _f(186e9, "derived", "gb200-page", "GB200 Superchip: 372 GB HBM3E for 2 GPUs, so 186 GB per GPU (Blackwell's maximum is 192 GB, bwu-blog Table 2)"),
+            "off_bw": _f(8e12, "derived", "gb200-page", "GB200 Superchip: 16 TB/s for 2 GPUs, so 8 TB/s per GPU (bwu-blog Table 2: 8 TB/s)"),
+            "c2c_bidir": _f(1.8e12, "derived", "gb200-page", "GB200 Superchip NVLink 3.6 TB/s for 2 GPUs: 1.8 TB/s per GPU"),
+            "hop_s": _f(None, "undisclosed", "gb200-page", "NVLink latency not given in the sources used"),
+            "power_w": _f(1200, "spec", "bwu-blog", "Table 2, Blackwell: Max power (TGP) up to 1,200W: the GPU's board power, as the H100's 700 W TDP is"),
+            "units": _f(None, "undisclosed", "bwu-blog", "SM count not given in the sources used"),
         },
     },
     "tpu-v6e": {

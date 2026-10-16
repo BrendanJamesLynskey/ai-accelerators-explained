@@ -120,9 +120,10 @@ export default function AboutPage(): JSX.Element {
           </li>
           <li>
             Energy per token is the chips&apos; stated power over the
-            bound&apos;s throughput; where a vendor gives only system power (DGX
-            B200, CS-3) it is a system share, and where it gives none it is not
-            shown.
+            bound&apos;s throughput; where a vendor gives only system power
+            (CS-3) it is a system share, and where it gives none it is not
+            shown. The B200&apos;s is Blackwell&apos;s maximum board power
+            (TGP), the figure AI Racks Explained uses too.
           </li>
           <li>
             The defect density and spare share in chapter 4 are illustrative.
