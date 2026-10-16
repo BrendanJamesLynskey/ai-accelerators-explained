@@ -12,6 +12,7 @@ import {
   SITE_NAME,
   SYSTOLIC_URL,
 } from "@/lib/site";
+import { HardwareWork } from "@/components/home/HardwareWork";
 
 const LINK =
   "focus-ring rounded underline decoration-accent/40 underline-offset-4 hover:decoration-accent";
@@ -34,9 +35,9 @@ export default function HomePage(): JSX.Element {
       <div className="mt-6 grid items-start gap-8 md:grid-cols-[1fr_minmax(0,22rem)]">
         <div>
           <p className="max-w-2xl text-lg text-neutral-600 dark:text-neutral-300">
-            An interactive comparison of the families of AI chips, from GPUs and
-            TPUs to wafer-scale and compiler-scheduled designs, running the same
-            decoder.
+            An interactive comparison of the families of AI chips, from NVIDIA
+            and AMD GPUs and TPUs to wafer-scale, compiler-scheduled and FPGA
+            designs, running the same decoder.
           </p>
           <div className="mt-6">
             <StartButton href={`/learn/${SECTIONS[0]!.slug}` as Route} />
@@ -58,6 +59,36 @@ export default function HomePage(): JSX.Element {
         claims are never used as inputs, and the model is checked against
         published capacity, throughput and latency figures.
       </CheckedStrip>
+      <section
+        aria-labelledby="finding-heading"
+        className="mt-12"
+        data-floor-finding
+      >
+        <h2
+          id="finding-heading"
+          className="text-xl font-semibold tracking-tight"
+        >
+          The finding: once weights are in SRAM, a layer costs tens of
+          microseconds
+        </h2>
+        <p className="mt-4 max-w-2xl text-neutral-600 dark:text-neutral-300">
+          Groq&apos;s chain of chips, Cerebras&apos;s wafers and
+          SambaNova&apos;s SN40L are built very differently, yet each pays{" "}
+          {v("floor.min", "time")} to {v("floor.max", "time")} per layer beyond
+          what reading its weights costs. On a wafer the weight reads take
+          nanoseconds; the per-layer critical path (synchronisation,
+          collectives, crossing the mesh) is the token. A single per-layer
+          floor, fitted on three of the machines, predicts the fourth within{" "}
+          {v("floor.worstPred", "num")}× where the bandwidth bound alone misses
+          by up to {v("floor.worstBound", "int")}×.{" "}
+          <Link href={"/learn/10-choosing" as Route} className={LINK}>
+            Chapter 10
+          </Link>{" "}
+          animates it. The GPUs, with prefill counted, reach about a third of
+          their tensor peak in MLPerf: {v("val.mlperf-h100.ratio", "pct")} for
+          eight H100s and {v("val.mlperf-gb200.ratio", "pct")} for four GB200s.
+        </p>
+      </section>
       <section aria-labelledby="learn-heading" className="mt-12">
         <h2 id="learn-heading" className="text-xl font-semibold tracking-tight">
           What you&apos;ll learn
@@ -111,6 +142,7 @@ export default function HomePage(): JSX.Element {
         </Link>
         .
       </p>
+      <HardwareWork />
       <p className="mt-12 text-sm text-neutral-600 dark:text-neutral-400">
         Part of the companion sites&apos; Hardware track, with{" "}
         <a href={KERNELS_URL} className={LINK}>

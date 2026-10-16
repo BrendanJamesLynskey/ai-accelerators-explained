@@ -21,8 +21,11 @@ from typing import Any
 ACCESSED = "2026-10-15"
 
 
-def _s(title: str, url: str, kind: str) -> dict[str, str]:
-    return {"title": title, "url": url, "kind": kind, "accessed": ACCESSED}
+def _s(title: str, url: str, kind: str, accessed: str = ACCESSED) -> dict[str, str]:
+    return {"title": title, "url": url, "kind": kind, "accessed": accessed}
+
+
+ACCESSED_42 = "2026-10-16"  # sources added by brief 42
 
 
 SOURCES: dict[str, dict[str, str]] = {
@@ -238,6 +241,52 @@ SOURCES: dict[str, dict[str, str]] = {
         "https://hailo.ai/products/ai-accelerators/hailo-10h-m-2-ai-acceleration-module/",
         "vendor product page",
     ),
+    # added by brief 42 (accessed 2026-10-16)
+    "amd-mi355x": _s(
+        "AMD Instinct MI355X product page, Specifications (launch date 6/12/2025)",
+        "https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html",
+        "vendor product page", ACCESSED_42,
+    ),
+    "amd-v80": _s(
+        "AMD Alveo V80 compute accelerator card, part page A-V80-P64G-PQ-G, General Specifications (Versal HBM XCV80; 'Buy')",
+        "https://www.amd.com/en/products/accelerators/alveo/v80/a-v80-p64g-pq-g.html",
+        "vendor product page", ACCESSED_42,
+    ),
+    "mlperf-gb200": _s(
+        "MLCommons, MLPerf Inference v5.1 results: NVIDIA GB200 NVL72 (4x GB200-186GB, one tray, TensorRT), llama2-70b-99.9, Offline, mlperf_log_summary.txt (weights FP4 per the submission's measurements JSON)",
+        "https://raw.githubusercontent.com/mlcommons/inference_results_v5.1/main/closed/NVIDIA/results/GB200-NVL72_GB200-186GB_aarch64x4_TRT/llama2-70b-99.9/Offline/performance/run_1/mlperf_log_summary.txt",
+        "benchmark result log", ACCESSED_42,
+    ),
+    "mlperf-gb200-meas": _s(
+        "MLCommons, MLPerf Inference v5.1: the same submission's measurements JSON ('weight_data_types': 'fp4')",
+        "https://raw.githubusercontent.com/mlcommons/inference_results_v5.1/main/closed/NVIDIA/measurements/GB200-NVL72_GB200-186GB_aarch64x4_TRT/llama2-70b-99.9/Offline/GB200-NVL72_GB200-186GB_aarch64x4_TRT_Offline.json",
+        "benchmark submission metadata", ACCESSED_42,
+    ),
+    "mlperf-dataset": _s(
+        "MLCommons, the MLPerf Llama 2 70B dataset (the 24,576-sample file and its MD5, as the bucket's manifest lists them): prompt lengths averaged by the site's scripts/mlperf_input_length.py",
+        "https://inference.mlcommons-storage.org/metadata/llama-2-70b-open-orca-dataset.md5",
+        "benchmark dataset", ACCESSED_42,
+    ),
+    "flightllm": _s(
+        "Zeng et al., 'FlightLLM: Efficient Large Language Model Inference with a Complete Mapping Flow on FPGAs', FPGA 2024, arXiv:2401.03868",
+        "https://arxiv.org/abs/2401.03868",
+        "peer-reviewed paper", ACCESSED_42,
+    ),
+    "chen-spatial": _s(
+        "Chen et al., 'Understanding the Potential of FPGA-Based Spatial Acceleration for Large Language Model Inference', arXiv:2312.15159",
+        "https://arxiv.org/abs/2312.15159",
+        "paper", ACCESSED_42,
+    ),
+    "finn": _s(
+        "Umuroglu et al., 'FINN: A Framework for Fast, Scalable Binarized Neural Network Inference', FPGA 2017, arXiv:1612.07119",
+        "https://arxiv.org/abs/1612.07119",
+        "peer-reviewed paper", ACCESSED_42,
+    ),
+    "hls4ml": _s(
+        "Duarte et al., 'Fast inference of deep neural networks in FPGAs for particle physics' (hls4ml), JINST 2018, arXiv:1804.06913",
+        "https://arxiv.org/abs/1804.06913",
+        "peer-reviewed paper", ACCESSED_42,
+    ),
 }
 
 
@@ -349,6 +398,7 @@ PARTS: dict[str, dict[str, Any]] = {
             "peak_bf16": _f(2.5e15, "derived", "gb200-page", "GB200 Superchip FP16/BF16 10 PFLOPS sparse for 2 GPUs: dense per GPU = 10 / 2 / 2"),
             "peak_fp8": _f(5e15, "spec", "bwu-blog", "Table 2, Blackwell: FP8 dense 5 PetaFLOPS (GB200 Superchip: 20 PFLOPS sparse for 2 GPUs, the same)"),
             "peak_int8": _f(5e15, "derived", "gb200-page", "GB200 Superchip INT8 20 POPS sparse for 2 GPUs: dense per GPU = 20 / 2 / 2"),
+            "peak_fp4": _f(10e15, "spec", "bwu-blog", "Table 2, Blackwell: NVFP4 dense 10 PetaFLOPS (GB200 Superchip: 20 PFLOPS dense for 2 GPUs)"),
             "sram_bytes": _f(None, "undisclosed", "bwu-blog", "L2 size not given in the sources used"),
             "sram_bw": _f(None, "undisclosed", "bwu-blog", "not given in the sources used"),
             "off_bytes": _f(186e9, "derived", "gb200-page", "GB200 Superchip: 372 GB HBM3E for 2 GPUs, so 186 GB per GPU (Blackwell's maximum is 192 GB, bwu-blog Table 2)"),
@@ -357,6 +407,24 @@ PARTS: dict[str, dict[str, Any]] = {
             "hop_s": _f(None, "undisclosed", "gb200-page", "NVLink latency not given in the sources used"),
             "power_w": _f(1200, "spec", "bwu-blog", "Table 2, Blackwell: Max power (TGP) up to 1,200W: the GPU's board power, as the H100's 700 W TDP is"),
             "units": _f(None, "undisclosed", "bwu-blog", "SM count not given in the sources used"),
+        },
+    },
+    "mi355x": {
+        "id": "mi355x", "name": "AMD Instinct MI355X", "family": "gpu", "layout": "tensor",
+        "avail": _f("product", "spec", "amd-mi355x", "product page with specifications; launch date 6/12/2025"),
+        "fields": {
+            "peak_bf16": _f(2.5e15, "spec", "amd-mi355x", "Peak bfloat16 (BF16) Matrix Performance 2.5 PFLOPs (dense; 5 PFLOPs with structured sparsity)"),
+            "peak_fp8": _f(5e15, "spec", "amd-mi355x", "Peak OCP-FP8 Matrix Performance (E5M2, E4M3) 5 PFLOPs (dense)"),
+            "peak_int8": _f(5e15, "spec", "amd-mi355x", "Peak INT8 Matrix Performance 5 POPs (dense)"),
+            "peak_fp4": _f(10.1e15, "spec", "amd-mi355x", "Peak Microscaling Four-bit Precision Matrix (MXFP4) Performance 10.1 PFLOPs"),
+            "sram_bytes": _f(256e6, "spec", "amd-mi355x", "Last Level Cache (LLC) 256 MB (a cache in front of HBM; the model reads weights from HBM)"),
+            "sram_bw": _f(None, "undisclosed", "amd-mi355x", "LLC bandwidth not given on the page"),
+            "off_bytes": _f(288e9, "spec", "amd-mi355x", "Dedicated Memory Size 288 GB, HBM3E"),
+            "off_bw": _f(8e12, "spec", "amd-mi355x", "Peak Memory Bandwidth 8 TB/s"),
+            "c2c_bidir": _f(None, "undisclosed", "amd-mi355x", "7 Infinity Fabric links at 153 GB/s each; the page does not say whether that is per direction"),
+            "hop_s": _f(None, "undisclosed", "amd-mi355x", "link latency not given"),
+            "power_w": _f(1400, "spec", "amd-mi355x", "Typical Board Power (TBP) 1400W"),
+            "units": _f(256, "spec", "amd-mi355x", "Compute Units 256 (1,024 matrix cores)"),
         },
     },
     "tpu-v6e": {
@@ -586,7 +654,7 @@ PARTS.update({
     },
 })
 
-PART_ORDER = ("h100", "b200", "tpu-v6e", "tpu-7x", "trn2", "wse-3", "wse-3t", "groqchip", "groq3", "sn40l", "gc2", "blackhole", "m4")
+PART_ORDER = ("h100", "b200", "mi355x", "tpu-v6e", "tpu-7x", "trn2", "wse-3", "wse-3t", "groqchip", "groq3", "sn40l", "gc2", "blackhole", "m4")
 
 # Parts quoted on the site but not run through placement or decode: a
 # capacity or bandwidth the model needs is not disclosed, or (SN50) the
@@ -617,6 +685,20 @@ OTHER_PARTS: dict[str, dict[str, Any]] = {
             "power_w": _f(75, "spec", "amd-v70", "Power (TDP) 75W"),
         },
     },
+    "v80": {
+        "id": "v80", "name": "AMD Alveo V80 (Versal HBM)", "family": "fpga-npu",
+        "avail": _f("product", "spec", "amd-v80", "part page with General Specifications and 'Buy'"),
+        "fields": {
+            "peak_int8": _f(None, "undisclosed", "amd-v80", "no TOPS figure: an FPGA's arithmetic rate depends on the design (10,848 DSP slices)"),
+            "peak_bf16": _f(None, "undisclosed", "amd-v80", "no FLOPS figure"),
+            "sram_bytes": _f((132e6 + 541e6) / 8, "derived", "amd-v80", "132 Mb Block RAM + 541 Mb UltraRAM = 673 Mb, about 84 MB"),
+            "off_bytes": _f(32e9, "spec", "amd-v80", "HBM Capacity 32 GB HBM2e DRAM (2x 16 GB stacks)"),
+            "off_bw": _f(820e9, "spec", "amd-v80", "820 GB/s peak bandwidth (the overview page's chart says 810 GB/s)"),
+            "luts": _f(2.6e6, "spec", "amd-v80", "2.6M Look-up tables (LUTs)"),
+            "dsps": _f(10848, "spec", "amd-v80", "10,848 DSP slices"),
+            "power_w": _f(190, "spec", "amd-v80", "Up to 190W TDP"),
+        },
+    },
     "hailo10h": {
         "id": "hailo10h", "name": "Hailo-10H (M.2 module)", "family": "fpga-npu",
         "avail": _f("product", "spec", "hailo-10h", "M.2 module with a 'How to Buy' section"),
@@ -629,7 +711,7 @@ OTHER_PARTS: dict[str, dict[str, Any]] = {
         },
     },
 }
-OTHER_ORDER = ("sn50", "v70", "hailo10h")
+OTHER_ORDER = ("sn50", "v70", "v80", "hailo10h")
 
 # Chapter 9: one analogue in-memory compute chip (a research chip, not a product).
 IMC: dict[str, dict[str, Any]] = {
@@ -690,6 +772,9 @@ FORMATS: dict[str, float] = {"bf16": 2.0, "fp8": 1.0, "int8": 1.0}
 PUBLISHED: dict[str, dict[str, Any]] = {
     "mlperf-h100": {**_f(21805.8, "spec", "mlperf-h100", "Offline 'Tokens per second: 21805.8' (8x H100 SXM, Llama 2 70B, 99.9% accuracy target; NVIDIA's blog: TensorRT-LLM with FP8 quantization)"), "also": ["nv-mlperf-v40"]},
     "mlperf-tokens-per-sample": _f(294.45, "spec", "mlperf-llama2", "Tokens per sample: 294.45 (output tokens)"),
+    "mlperf-input-mean": _f(5463976 / 24576, "derived", "mlperf-dataset", "mean of tok_input_length over the 24,576 samples: 5,463,976 tokens / 24,576 = 222.33 (scripts/mlperf_input_length.py; median 152, min 48, max 1,021)"),
+    "mlperf-gb200": {**_f(51736.9, "spec", "mlperf-gb200", "Offline 'Tokens per second: 51736.9' (4x GB200 in one tray, Llama 2 70B, 99.9% accuracy target, FP4 weights)"), "also": ["mlperf-gb200-meas"]},
+    "mlperf-gb200-chips": _f(4, "spec", "mlperf-gb200", "system GB200-NVL72_GB200-186GB_aarch64x4: 4 GPUs"),
     "cerebras-70b-systems": _f(4, "spec", "cerebras-inference", "'70B models fit on as few as four systems' (16-bit weights)"),
     "cerebras-20b-one": _f(1, "spec", "cerebras-inference", "'20B models fit on a single CS-3'"),
     "cerebras-8b-tps": _f(1800, "spec", "cerebras-inference", "'1,800 tokens per second for Llama3.1 8B' (16-bit weights)"),
@@ -726,6 +811,22 @@ CLAIMS: dict[str, dict[str, str]] = {
     "sn40l-85": {
         "text": "SN40L: 'Dataflow enables overlapping weight loads with computation to achieve over 85% of HBM bandwidth' (the SN40L paper; it says GPU implementations 'rarely exceed 50%')",
         "src": "sn40l",
+    },
+    "flightllm": {
+        "text": "FlightLLM on an Alveo U280: '6.0x higher energy efficiency and 1.8x better cost efficiency against commercial GPUs (e.g., NVIDIA V100S) on modern LLMs (e.g., LLaMA2-7B)' at batch 1; on a Versal VHK158, '1.2x higher throughput' than an A100",
+        "src": "flightllm",
+    },
+    "chen-spatial": {
+        "text": "a spatial (one unit per operator) GPT-2 design on an Alveo U280: 'a 1.9x speedup and a 5.7x improvement in energy efficiency compared to the NVIDIA A100 GPU in the decode stage', with a library of HLS kernels",
+        "src": "chen-spatial",
+    },
+    "finn": {
+        "text": "FINN builds FPGA accelerators for binarized networks as 'a flexible heterogeneous streaming architecture', 'with per-layer compute resources being tailored to user-provided throughput requirements': up to 12.3 million MNIST classifications per second at 0.31 us latency, under 25 W",
+        "src": "finn",
+    },
+    "hls4ml": {
+        "text": "hls4ml, 'a package based on High-Level Synthesis', builds neural networks into FPGAs for particle-physics triggers; the example jet classifier fits 'with a latency on the scale of 100 ns'",
+        "src": "hls4ml",
     },
     "m4-npu": {
         "text": "M4's Neural Engine is 'faster than the neural processing unit of any AI PC today' (Apple, May 2024)",

@@ -45,6 +45,9 @@ export const FIELD_INFO: Record<
   peak_fp16: { label: "FP16, dense", fmt: fmtFlops },
   peak_fp16_sparse: { label: "FP16, sparse (vendor figure)", fmt: fmtFlops },
   peak_fp8: { label: "FP8, dense", fmt: fmtFlops },
+  peak_fp4: { label: "FP4 (NVFP4 or MXFP4), dense", fmt: fmtFlops },
+  luts: { label: "Look-up tables", fmt: fmtInt },
+  dsps: { label: "DSP slices", fmt: fmtInt },
   peak_int8: {
     label: "INT8, dense",
     fmt: (v) => fmtFlops(v).replace("FLOP/s", "OP/s"),

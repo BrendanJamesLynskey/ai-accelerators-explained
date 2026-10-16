@@ -46,6 +46,13 @@ import {
   shape,
   throughputCeiling,
   validation,
+  PUBLISHED,
+  mlperfCeiling,
+  sampleFlops,
+  floorFit,
+  criticalPathSteps,
+  type FloorCheck,
+  type FloorMode,
   waferYield,
   wafersNeeded,
   type ChainCase,
@@ -349,5 +356,62 @@ describe("chapter 10: choosing", () => {
       prompt: number;
     }>(fx.choose))
       expect(choose(r.model, r.batch, r.ctx, r.prompt)).toEqual(r.out);
+  });
+});
+
+describe("brief 42: MLPerf with prefill, and the latency floor", () => {
+  it("gives the same MLPerf ceilings and sample flops", () => {
+    const P = (k: string) => PUBLISHED[k]!.v;
+    const nIn = P("mlperf-input-mean");
+    const nOut = P("mlperf-tokens-per-sample");
+    expect(mlperfCeiling("h100", "llama2-70b", "fp8", 8, nIn, nOut)).toEqual(
+      fx.mlperf.h100,
+    );
+    expect(
+      mlperfCeiling(
+        "b200",
+        "llama2-70b",
+        "fp4",
+        P("mlperf-gb200-chips"),
+        nIn,
+        nOut,
+      ),
+    ).toEqual(fx.mlperf.gb200);
+    expect(mlperfCeiling("mi355x", "llama2-70b", "fp4", 8, nIn, nOut)).toEqual(
+      fx.mlperf.mi355x,
+    );
+    for (const r of rows<{
+      model: ModelId;
+      in: number;
+      out: number;
+      flops: unknown;
+    }>(fx.sampleFlops))
+      expect(sampleFlops(r.model, r.in, r.out)).toEqual(r.flops);
+  });
+
+  it("fits the same floor and walks the same critical paths", () => {
+    expect(floorFit()).toEqual(fx.floor);
+    for (const r of rows<{ id: FloorCheck; mode: FloorMode; out: unknown }>(
+      fx.path,
+    ))
+      expect(criticalPathSteps(r.id, r.mode)).toEqual(r.out);
+  });
+
+  it("including prefill raises both GPU ratios to about a third", () => {
+    const v = validation();
+    const h = v.find((x) => x.id === "mlperf-h100")!;
+    const g = v.find((x) => x.id === "mlperf-gb200")!;
+    expect(h.ratio).toBeGreaterThan(0.3);
+    expect(h.ratio).toBeLessThan(0.4);
+    expect(g.ratio).toBeGreaterThan(0.3);
+    expect(g.ratio).toBeLessThan(0.4);
+  });
+
+  it("the floor term predicts every SRAM system within 2x, the bound alone misses by up to 770x", () => {
+    const f = floorFit();
+    expect(f.worstPred).toBeLessThan(2);
+    expect(f.worstBound).toBeGreaterThan(700);
+    expect(f.min).toBeGreaterThan(10e-6);
+    expect(f.max).toBeLessThan(40e-6);
   });
 });

@@ -264,6 +264,43 @@ def throughput_ceiling(pid: str, mid: str, fmt: str, chips: int) -> float:
     return chips * peak(pid, fmt)["flops"] / (2 * s["matmul_params"])
 
 
+def peak_any(pid: str, fmt: str) -> float | None:
+    """`peak` for bf16/fp8/int8; for "fp4" the part's dense 4-bit rate (NVFP4 or MXFP4), if stated."""
+    if fmt == "fp4":
+        return fval(pid, "peak_fp4")
+    return peak(pid, fmt)["flops"]
+
+
+def sample_flops(mid: str, n_in: float, n_out: float) -> dict[str, float]:
+    """
+    The flops one benchmark sample costs: prefill of n_in prompt tokens
+    (weights plus causal attention over half the prompt on average) and
+    n_out decode steps (weights plus attention over the prompt and, on
+    average, half the output so far).
+    """
+    s = shape(mid)
+    w = 2 * s["matmul_params"]
+    a = s["attn_flops_per_pos"]
+    prefill = w * n_in + a * (n_in * n_in / 2)
+    decode = w * n_out + a * n_out * (n_in + n_out / 2)
+    return {"prefill": prefill, "decode": decode, "total": prefill + decode}
+
+
+def mlperf_ceiling(pid: str, mid: str, fmt: str, chips: int, n_in: float, n_out: float) -> dict[str, Any]:
+    """
+    MLPerf Offline's output tokens per second if every chip ran at peak on
+    everything a sample costs (prefill included): chips x peak / flops per
+    sample x output tokens per sample. Also the decode-only ceiling and how
+    much prefill and attention lower it.
+    """
+    pk = peak_any(pid, fmt)
+    f = sample_flops(mid, n_in, n_out)
+    full = chips * pk / f["total"] * n_out
+    decode_only = chips * pk / (2 * shape(mid)["matmul_params"])
+    return {"ceiling": full, "decodeOnly": decode_only, "prefillShare": f["prefill"] / f["total"],
+            "flops": f, "peak": pk, "chips": chips}
+
+
 # ---------------------------------------------------------------------------
 # Chapter 1: the map
 # ---------------------------------------------------------------------------
@@ -558,8 +595,11 @@ def validation() -> list[dict[str, Any]]:
     add("cerebras-20b-wafer", "capacity", "a 20B model, 16-bit: CS-3 systems needed (weights only)", P["cerebras-20b-one"], math.ceil(20e9 * 2 / fval("wse-3", "sram_bytes")), "cerebras-inference")
     capg = placement("groqchip", "llama2-70b", "int8", 1, GROQ_CTX)["chips"]
     add("groq-70b-chips", "capacity", "Llama 2 70B, INT8: GroqChips used vs the fewest that hold it", P["groq-70b-chips"], capg, "nextplatform-groq")
-    ceil_h100 = throughput_ceiling("h100", "llama2-70b", "fp8", 8)
-    add("mlperf-h100", "throughput", "8x H100, Llama 2 70B, FP8, MLPerf Offline tokens/s vs the compute ceiling", P["mlperf-h100"], ceil_h100, "mlperf-h100")
+    n_in, n_out = P["mlperf-input-mean"], P["mlperf-tokens-per-sample"]
+    ceil_h100 = mlperf_ceiling("h100", "llama2-70b", "fp8", 8, n_in, n_out)["ceiling"]
+    add("mlperf-h100", "throughput", "8x H100, Llama 2 70B, FP8, MLPerf Offline tokens/s vs the compute ceiling (prefill included)", P["mlperf-h100"], ceil_h100, "mlperf-h100")
+    ceil_gb200 = mlperf_ceiling("b200", "llama2-70b", "fp4", P["mlperf-gb200-chips"], n_in, n_out)["ceiling"]
+    add("mlperf-gb200", "throughput", "4x GB200 (Blackwell), Llama 2 70B, FP4, MLPerf Offline tokens/s vs the compute ceiling (prefill included)", P["mlperf-gb200"], ceil_gb200, "mlperf-gb200")
     g = decode("groqchip", "llama2-70b", "int8", 1, GROQ_CTX, P["groq-70b-chips"], fval("groqchip", "node_chips"))
     add("groq-70b-tps", "latency", "576 GroqChips, Llama 2 70B: tokens/s per user vs the bound", P["groq-70b-tps"], g["tok_s_user"], "nextplatform-groq")
     c70 = decode("wse-3", "llama3-70b", "bf16", 1, CEREBRAS_CTX)
@@ -574,14 +614,96 @@ def validation() -> list[dict[str, Any]]:
     return rows
 
 
+OVERHEAD_MODEL = {"groq-70b-tps": "llama2-70b", "cerebras-70b-tps": "llama3-70b", "cerebras-8b-tps": "llama3-8b", "sn40l-8b-tps": "llama3-8b"}
+
+
 def implied_overhead(check_id: str) -> dict[str, Any]:
     """For a speed check: the time per token the system took beyond the model's bound, per layer."""
     v = next(r for r in validation() if r["id"] == check_id)
-    mid = {"groq-70b-tps": "llama2-70b", "cerebras-70b-tps": "llama3-70b", "cerebras-8b-tps": "llama3-8b", "sn40l-8b-tps": "llama3-8b"}[check_id]
+    mid = OVERHEAD_MODEL[check_id]
     t_pub = 1 / v["published"]
     t_mod = 1 / v["model"]
     layers = MODELS[mid]["layers"]
     return {"t_published": t_pub, "t_model": t_mod, "extra": t_pub - t_mod, "per_layer": (t_pub - t_mod) / layers}
+
+
+# ---------------------------------------------------------------------------
+# The per-layer latency floor of the SRAM machines (chapters 4, 5 and 10)
+# ---------------------------------------------------------------------------
+
+FLOOR_CHECKS = ("groq-70b-tps", "cerebras-70b-tps", "cerebras-8b-tps", "sn40l-8b-tps")
+FLOOR_LABEL = {
+    "groq-70b-tps": "Groq, 576 chips, Llama 2 70B",
+    "cerebras-70b-tps": "Cerebras, 4 CS-3, Llama 3.1 70B",
+    "cerebras-8b-tps": "Cerebras, 1 CS-3, Llama 3.1 8B",
+    "sn40l-8b-tps": "SambaNova, 16 SN40L, Llama 3.1 8B",
+}
+
+
+def floor_fit() -> dict[str, Any]:
+    """
+    A fixed time per layer, tau, added to the bound: t = t_bound + L tau.
+    The fitted tau is the mean of the four systems' implied per-layer
+    overheads. Each system is also predicted with tau fitted on the other
+    three only (leave-one-out), so the test of the term is honest: the
+    ratio published / predicted is reported for every system.
+    """
+    rows = []
+    for cid in FLOOR_CHECKS:
+        o = implied_overhead(cid)
+        layers = MODELS[OVERHEAD_MODEL[cid]]["layers"]
+        rows.append({"id": cid, "label": FLOOR_LABEL[cid], "layers": layers, **o})
+    n = len(rows)
+    # explicit loops: Python's sum() of floats is compensated, the port's is not
+    total = 0.0
+    for r in rows:
+        total += r["per_layer"]
+    tau = total / n
+    for r in rows:
+        o = 0.0
+        k = 0
+        for x in rows:
+            if x["id"] != r["id"]:
+                o += x["per_layer"]
+                k += 1
+        tau_loo = o / k
+        t_pred = r["t_model"] + r["layers"] * tau_loo
+        r["tauLoo"] = tau_loo
+        r["tPred"] = t_pred
+        r["ratioPred"] = r["t_published"] / t_pred  # time: published / predicted
+        r["ratioBound"] = r["t_published"] / r["t_model"]
+        r["floorShare"] = r["layers"] * tau_loo / t_pred
+    lo = min(r["per_layer"] for r in rows)
+    hi = max(r["per_layer"] for r in rows)
+    return {"tau": tau, "min": lo, "max": hi, "rows": rows,
+            "worstPred": max(max(r["ratioPred"], 1 / r["ratioPred"]) for r in rows),
+            "worstBound": max(r["ratioBound"] for r in rows)}
+
+
+def critical_path_steps(check_id: str, mode: str) -> list[dict[str, Any]]:
+    """
+    Chapter 10's animation: one token's critical path, layer by layer, for
+    one system. Each layer costs its share of the bound (t_model / L: the
+    weight reads or compute the bound counts) plus a floor: the leave-one-out
+    tau ("fitted"), the system's own implied overhead ("own") or none.
+    Step 0 is the token's start; step i ends layer i; the last step adds the
+    published time for comparison.
+    """
+    fit = floor_fit()
+    r = next(x for x in fit["rows"] if x["id"] == check_id)
+    L = r["layers"]
+    work = r["t_model"] / L
+    floor = {"fitted": r["tauLoo"], "own": r["per_layer"], "none": 0.0}[mode]
+    out = [{"i": 0, "layer": 0, "t": 0.0, "work": 0.0, "floor": 0.0, "layers": L}]
+    t = 0.0
+    w_acc = 0.0
+    f_acc = 0.0
+    for i in range(1, L + 1):
+        t = t + work + floor
+        w_acc = w_acc + work
+        f_acc = f_acc + floor
+        out.append({"i": i, "layer": i, "t": t, "work": w_acc, "floor": f_acc, "layers": L})
+    return out
 
 
 def band() -> dict[str, Any]:
@@ -838,7 +960,7 @@ def mesh_steps(pid: str, mid: str, fmt: str, batch: int, ctx: int, cards: int) -
 # ---------------------------------------------------------------------------
 
 BITS = (16, 8, 6, 5, 4, 3, 2)
-EDGE_DEVICES = ("m4", "v70")
+EDGE_DEVICES = ("m4", "v70", "v80")
 
 
 def anyval(pid: str, key: str) -> Any:

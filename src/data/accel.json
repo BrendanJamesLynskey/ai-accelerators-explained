@@ -246,6 +246,60 @@
    "url": "https://hailo.ai/products/ai-accelerators/hailo-10h-m-2-ai-acceleration-module/",
    "kind": "vendor product page",
    "accessed": "2026-10-15"
+  },
+  "amd-mi355x": {
+   "title": "AMD Instinct MI355X product page, Specifications (launch date 6/12/2025)",
+   "url": "https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html",
+   "kind": "vendor product page",
+   "accessed": "2026-10-16"
+  },
+  "amd-v80": {
+   "title": "AMD Alveo V80 compute accelerator card, part page A-V80-P64G-PQ-G, General Specifications (Versal HBM XCV80; 'Buy')",
+   "url": "https://www.amd.com/en/products/accelerators/alveo/v80/a-v80-p64g-pq-g.html",
+   "kind": "vendor product page",
+   "accessed": "2026-10-16"
+  },
+  "mlperf-gb200": {
+   "title": "MLCommons, MLPerf Inference v5.1 results: NVIDIA GB200 NVL72 (4x GB200-186GB, one tray, TensorRT), llama2-70b-99.9, Offline, mlperf_log_summary.txt (weights FP4 per the submission's measurements JSON)",
+   "url": "https://raw.githubusercontent.com/mlcommons/inference_results_v5.1/main/closed/NVIDIA/results/GB200-NVL72_GB200-186GB_aarch64x4_TRT/llama2-70b-99.9/Offline/performance/run_1/mlperf_log_summary.txt",
+   "kind": "benchmark result log",
+   "accessed": "2026-10-16"
+  },
+  "mlperf-gb200-meas": {
+   "title": "MLCommons, MLPerf Inference v5.1: the same submission's measurements JSON ('weight_data_types': 'fp4')",
+   "url": "https://raw.githubusercontent.com/mlcommons/inference_results_v5.1/main/closed/NVIDIA/measurements/GB200-NVL72_GB200-186GB_aarch64x4_TRT/llama2-70b-99.9/Offline/GB200-NVL72_GB200-186GB_aarch64x4_TRT_Offline.json",
+   "kind": "benchmark submission metadata",
+   "accessed": "2026-10-16"
+  },
+  "mlperf-dataset": {
+   "title": "MLCommons, the MLPerf Llama 2 70B dataset (the 24,576-sample file and its MD5, as the bucket's manifest lists them): prompt lengths averaged by the site's scripts/mlperf_input_length.py",
+   "url": "https://inference.mlcommons-storage.org/metadata/llama-2-70b-open-orca-dataset.md5",
+   "kind": "benchmark dataset",
+   "accessed": "2026-10-16"
+  },
+  "flightllm": {
+   "title": "Zeng et al., 'FlightLLM: Efficient Large Language Model Inference with a Complete Mapping Flow on FPGAs', FPGA 2024, arXiv:2401.03868",
+   "url": "https://arxiv.org/abs/2401.03868",
+   "kind": "peer-reviewed paper",
+   "accessed": "2026-10-16"
+  },
+  "chen-spatial": {
+   "title": "Chen et al., 'Understanding the Potential of FPGA-Based Spatial Acceleration for Large Language Model Inference', arXiv:2312.15159",
+   "url": "https://arxiv.org/abs/2312.15159",
+   "kind": "paper",
+   "accessed": "2026-10-16"
+  },
+  "finn": {
+   "title": "Umuroglu et al., 'FINN: A Framework for Fast, Scalable Binarized Neural Network Inference', FPGA 2017, arXiv:1612.07119",
+   "url": "https://arxiv.org/abs/1612.07119",
+   "kind": "peer-reviewed paper",
+   "accessed": "2026-10-16"
+  },
+  "hls4ml": {
+   "title": "Duarte et al., 'Fast inference of deep neural networks in FPGAs for particle physics' (hls4ml), JINST 2018, arXiv:1804.06913",
+   "url": "https://arxiv.org/abs/1804.06913",
+   "kind": "peer-reviewed paper",
+   "accessed": "2026-10-16"
   }
  },
  "families": [
@@ -581,6 +635,12 @@
      "src": "gb200-page",
      "ref": "GB200 Superchip INT8 20 POPS sparse for 2 GPUs: dense per GPU = 20 / 2 / 2"
     },
+    "peak_fp4": {
+     "v": 1e+16,
+     "st": "spec",
+     "src": "bwu-blog",
+     "ref": "Table 2, Blackwell: NVFP4 dense 10 PetaFLOPS (GB200 Superchip: 20 PFLOPS dense for 2 GPUs)"
+    },
     "sram_bytes": {
      "v": null,
      "st": "undisclosed",
@@ -628,6 +688,92 @@
      "st": "undisclosed",
      "src": "bwu-blog",
      "ref": "SM count not given in the sources used"
+    }
+   }
+  },
+  {
+   "id": "mi355x",
+   "name": "AMD Instinct MI355X",
+   "family": "gpu",
+   "layout": "tensor",
+   "avail": {
+    "v": "product",
+    "st": "spec",
+    "src": "amd-mi355x",
+    "ref": "product page with specifications; launch date 6/12/2025"
+   },
+   "fields": {
+    "peak_bf16": {
+     "v": 2500000000000000.0,
+     "st": "spec",
+     "src": "amd-mi355x",
+     "ref": "Peak bfloat16 (BF16) Matrix Performance 2.5 PFLOPs (dense; 5 PFLOPs with structured sparsity)"
+    },
+    "peak_fp8": {
+     "v": 5000000000000000.0,
+     "st": "spec",
+     "src": "amd-mi355x",
+     "ref": "Peak OCP-FP8 Matrix Performance (E5M2, E4M3) 5 PFLOPs (dense)"
+    },
+    "peak_int8": {
+     "v": 5000000000000000.0,
+     "st": "spec",
+     "src": "amd-mi355x",
+     "ref": "Peak INT8 Matrix Performance 5 POPs (dense)"
+    },
+    "peak_fp4": {
+     "v": 1.01e+16,
+     "st": "spec",
+     "src": "amd-mi355x",
+     "ref": "Peak Microscaling Four-bit Precision Matrix (MXFP4) Performance 10.1 PFLOPs"
+    },
+    "sram_bytes": {
+     "v": 256000000.0,
+     "st": "spec",
+     "src": "amd-mi355x",
+     "ref": "Last Level Cache (LLC) 256 MB (a cache in front of HBM; the model reads weights from HBM)"
+    },
+    "sram_bw": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "amd-mi355x",
+     "ref": "LLC bandwidth not given on the page"
+    },
+    "off_bytes": {
+     "v": 288000000000.0,
+     "st": "spec",
+     "src": "amd-mi355x",
+     "ref": "Dedicated Memory Size 288 GB, HBM3E"
+    },
+    "off_bw": {
+     "v": 8000000000000.0,
+     "st": "spec",
+     "src": "amd-mi355x",
+     "ref": "Peak Memory Bandwidth 8 TB/s"
+    },
+    "c2c_bidir": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "amd-mi355x",
+     "ref": "7 Infinity Fabric links at 153 GB/s each; the page does not say whether that is per direction"
+    },
+    "hop_s": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "amd-mi355x",
+     "ref": "link latency not given"
+    },
+    "power_w": {
+     "v": 1400,
+     "st": "spec",
+     "src": "amd-mi355x",
+     "ref": "Typical Board Power (TBP) 1400W"
+    },
+    "units": {
+     "v": 256,
+     "st": "spec",
+     "src": "amd-mi355x",
+     "ref": "Compute Units 256 (1,024 matrix cores)"
     }
    }
   },
@@ -1772,6 +1918,27 @@
    "src": "mlperf-llama2",
    "ref": "Tokens per sample: 294.45 (output tokens)"
   },
+  "mlperf-input-mean": {
+   "v": 222.32975260416666,
+   "st": "derived",
+   "src": "mlperf-dataset",
+   "ref": "mean of tok_input_length over the 24,576 samples: 5,463,976 tokens / 24,576 = 222.33 (scripts/mlperf_input_length.py; median 152, min 48, max 1,021)"
+  },
+  "mlperf-gb200": {
+   "v": 51736.9,
+   "st": "spec",
+   "src": "mlperf-gb200",
+   "ref": "Offline 'Tokens per second: 51736.9' (4x GB200 in one tray, Llama 2 70B, 99.9% accuracy target, FP4 weights)",
+   "also": [
+    "mlperf-gb200-meas"
+   ]
+  },
+  "mlperf-gb200-chips": {
+   "v": 4,
+   "st": "spec",
+   "src": "mlperf-gb200",
+   "ref": "system GB200-NVL72_GB200-186GB_aarch64x4: 4 GPUs"
+  },
   "cerebras-70b-systems": {
    "v": 4,
    "st": "spec",
@@ -1851,6 +2018,22 @@
   "sn40l-85": {
    "text": "SN40L: 'Dataflow enables overlapping weight loads with computation to achieve over 85% of HBM bandwidth' (the SN40L paper; it says GPU implementations 'rarely exceed 50%')",
    "src": "sn40l"
+  },
+  "flightllm": {
+   "text": "FlightLLM on an Alveo U280: '6.0x higher energy efficiency and 1.8x better cost efficiency against commercial GPUs (e.g., NVIDIA V100S) on modern LLMs (e.g., LLaMA2-7B)' at batch 1; on a Versal VHK158, '1.2x higher throughput' than an A100",
+   "src": "flightllm"
+  },
+  "chen-spatial": {
+   "text": "a spatial (one unit per operator) GPT-2 design on an Alveo U280: 'a 1.9x speedup and a 5.7x improvement in energy efficiency compared to the NVIDIA A100 GPU in the decode stage', with a library of HLS kernels",
+   "src": "chen-spatial"
+  },
+  "finn": {
+   "text": "FINN builds FPGA accelerators for binarized networks as 'a flexible heterogeneous streaming architecture', 'with per-layer compute resources being tailored to user-provided throughput requirements': up to 12.3 million MNIST classifications per second at 0.31 us latency, under 25 W",
+   "src": "finn"
+  },
+  "hls4ml": {
+   "text": "hls4ml, 'a package based on High-Level Synthesis', builds neural networks into FPGAs for particle-physics triggers; the example jet classifier fits 'with a latency on the scale of 100 ns'",
+   "src": "hls4ml"
   },
   "m4-npu": {
    "text": "M4's Neural Engine is 'faster than the neural processing unit of any AI PC today' (Apple, May 2024)",
@@ -2070,6 +2253,67 @@
    }
   },
   {
+   "id": "v80",
+   "name": "AMD Alveo V80 (Versal HBM)",
+   "family": "fpga-npu",
+   "avail": {
+    "v": "product",
+    "st": "spec",
+    "src": "amd-v80",
+    "ref": "part page with General Specifications and 'Buy'"
+   },
+   "fields": {
+    "peak_int8": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "amd-v80",
+     "ref": "no TOPS figure: an FPGA's arithmetic rate depends on the design (10,848 DSP slices)"
+    },
+    "peak_bf16": {
+     "v": null,
+     "st": "undisclosed",
+     "src": "amd-v80",
+     "ref": "no FLOPS figure"
+    },
+    "sram_bytes": {
+     "v": 84125000.0,
+     "st": "derived",
+     "src": "amd-v80",
+     "ref": "132 Mb Block RAM + 541 Mb UltraRAM = 673 Mb, about 84 MB"
+    },
+    "off_bytes": {
+     "v": 32000000000.0,
+     "st": "spec",
+     "src": "amd-v80",
+     "ref": "HBM Capacity 32 GB HBM2e DRAM (2x 16 GB stacks)"
+    },
+    "off_bw": {
+     "v": 820000000000.0,
+     "st": "spec",
+     "src": "amd-v80",
+     "ref": "820 GB/s peak bandwidth (the overview page's chart says 810 GB/s)"
+    },
+    "luts": {
+     "v": 2600000.0,
+     "st": "spec",
+     "src": "amd-v80",
+     "ref": "2.6M Look-up tables (LUTs)"
+    },
+    "dsps": {
+     "v": 10848,
+     "st": "spec",
+     "src": "amd-v80",
+     "ref": "10,848 DSP slices"
+    },
+    "power_w": {
+     "v": 190,
+     "st": "spec",
+     "src": "amd-v80",
+     "ref": "Up to 190W TDP"
+    }
+   }
+  },
+  {
    "id": "hailo10h",
    "name": "Hailo-10H (M.2 module)",
    "family": "fpga-npu",
@@ -2269,7 +2513,8 @@
  ],
  "edgeDevices": [
   "m4",
-  "v70"
+  "v70",
+  "v80"
  ],
  "actBytes": 2.0
 }

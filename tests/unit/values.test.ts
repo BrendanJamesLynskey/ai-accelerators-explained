@@ -43,7 +43,7 @@ describe("model values quoted in the chapters", () => {
         "int",
       ),
     ).toBe("4");
-    expect(formatValue(lookup("val.mlperf-h100.ratio"), "pct")).toBe("19%");
+    expect(formatValue(lookup("val.mlperf-h100.ratio"), "pct")).toBe("33%");
     expect(formatValue(lookup("pub.groq-70b-chips"), "int")).toBe("576");
   });
   it("formats every kind", () => {

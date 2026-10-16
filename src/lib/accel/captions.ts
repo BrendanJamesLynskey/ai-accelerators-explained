@@ -11,6 +11,9 @@ import {
   PLACEMENT_LABELS,
   SCHEDULE_LABELS,
   type ChainStep,
+  type FloorMode,
+  type FloorRow,
+  type PathStep,
   type Choice,
   type DataflowStep,
   type Decode,
@@ -241,4 +244,22 @@ export function partShort(pid: string): string {
   return anyName(pid)
     .split(" (")[0]!
     .replace(/^(NVIDIA|Google|Cerebras|SambaNova|Tenstorrent|Apple|IBM) /, "");
+}
+
+// --- chapter 10: the per-layer latency floor ---------------------------------------
+
+export function pathCaption(s: PathStep, r: FloorRow, mode: FloorMode): string {
+  const floorName =
+    mode === "fitted"
+      ? `the floor fitted on the other three systems (${fmtTime(r.tauLoo)} a layer)`
+      : mode === "own"
+        ? `this system's own floor (${fmtTime(r.per_layer)} a layer)`
+        : "no floor";
+  if (s.layer === 0)
+    return `${r.label}: one token starts down ${s.layers} layers, with the bound's work per layer (${fmtTime(r.t_model / s.layers)}) and ${floorName}.`;
+  const end =
+    s.layer === s.layers
+      ? ` The token is out after ${fmtTime(s.t)}; the system published ${fmtTime(r.t_published)}.`
+      : "";
+  return `Layer ${s.layer} of ${s.layers}: ${fmtTime(s.t)} so far, ${fmtTime(s.work)} of it the bound's work and ${fmtTime(s.floor)} the floor.${end}`;
 }

@@ -215,6 +215,25 @@ def fixtures() -> dict:
     out["validation"] = a.validation()
     out["band"] = a.band()
     out["overhead"] = {k: a.implied_overhead(k) for k in OVERHEAD_IDS}
+    P = {k: f["v"] for k, f in a.PUBLISHED.items()}
+    n_in, n_out = P["mlperf-input-mean"], P["mlperf-tokens-per-sample"]
+    out["mlperf"] = {
+        "h100": a.mlperf_ceiling("h100", "llama2-70b", "fp8", 8, n_in, n_out),
+        "gb200": a.mlperf_ceiling("b200", "llama2-70b", "fp4", P["mlperf-gb200-chips"], n_in, n_out),
+        "mi355x": a.mlperf_ceiling("mi355x", "llama2-70b", "fp4", 8, n_in, n_out),
+    }
+    out["sampleFlops"] = [
+        {"model": m, "in": i, "out": o, "flops": a.sample_flops(m, i, o)}
+        for m in a.MODEL_ORDER
+        for i in (1, 222.32975260416666, 1024)
+        for o in (1, 294.45, 1024)
+    ]
+    out["floor"] = a.floor_fit()
+    out["path"] = [
+        {"id": c, "mode": md, "out": a.critical_path_steps(c, md)}
+        for c in a.FLOOR_CHECKS
+        for md in ("fitted", "own", "none")
+    ]
     return out
 
 
@@ -379,6 +398,35 @@ def results_md() -> str:
     for k in OVERHEAD_IDS:
         o = a.implied_overhead(k)
         w(f"| `{k}` | {o['t_published']:.4g} | {o['t_model']:.4g} | {o['per_layer']:.4g} |")
+    w("")
+    w("### The per-layer latency floor (brief 42)")
+    w("")
+    w(
+        "A fixed time per layer, tau, added to the bound: t = t_bound + L tau. Each row's prediction uses tau fitted on the "
+        "other three systems only (leave-one-out); ratio = published time / time (above 1: slower than predicted)."
+    )
+    w("")
+    f = a.floor_fit()
+    w(f"tau (mean of four) = {f['tau']:.4g} s per layer; range {f['min']:.4g} to {f['max']:.4g} s.")
+    w("")
+    w("| check | layers | own extra per layer (s) | tau, others (s) | predicted (s/token) | published / predicted | published / bound | floor share of predicted |")
+    w("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    for r in f["rows"]:
+        w(f"| `{r['id']}` | {r['layers']} | {r['per_layer']:.4g} | {r['tauLoo']:.4g} | {r['tPred']:.4g} | {r['ratioPred']:.4g} | {r['ratioBound']:.4g} | {r['floorShare']:.4g} |")
+    w("")
+    w(f"Worst leave-one-out miss: {f['worstPred']:.4g}x in time; worst miss of the bound alone: {f['worstBound']:.4g}x.")
+    w("")
+    w("### MLPerf ceiling with prefill (brief 42)")
+    w("")
+    P = {k: v["v"] for k, v in a.PUBLISHED.items()}
+    n_in, n_out = P["mlperf-input-mean"], P["mlperf-tokens-per-sample"]
+    w(f"Mean prompt {n_in:.6g} tokens (the dataset, {_src('mlperf-dataset')}); output {n_out} tokens per sample ({_src('mlperf-llama2')}).")
+    w("")
+    w("| system | format | chips | decode-only ceiling (tok/s) | ceiling with prefill (tok/s) | prefill share of flops | published (tok/s) | published / ceiling |")
+    w("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    for label, pid, fmt, chips, pub in (("8x H100 (v4.0)", "h100", "fp8", 8, P["mlperf-h100"]), ("4x GB200 (v5.1)", "b200", "fp4", P["mlperf-gb200-chips"], P["mlperf-gb200"])):
+        m = a.mlperf_ceiling(pid, "llama2-70b", fmt, chips, n_in, n_out)
+        w(f"| {label} | {fmt} | {chips} | {m['decodeOnly']:.6g} | {m['ceiling']:.6g} | {m['prefillShare']:.4g} | {pub:.6g} | {pub / m['ceiling']:.4g} |")
     w("")
     w("## Numbers the chapters use")
     w("")

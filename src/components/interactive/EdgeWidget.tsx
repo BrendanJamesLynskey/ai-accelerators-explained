@@ -30,6 +30,7 @@ import { MUTED, STATE_COLOUR, TERM_COLOUR } from "@/lib/viz/palette";
 const W = 360;
 const DEVICES: Record<string, string> = {
   m4: "Apple M4 Neural Engine",
+  v80: "AMD Alveo V80",
   v70: "AMD Alveo V70",
 };
 

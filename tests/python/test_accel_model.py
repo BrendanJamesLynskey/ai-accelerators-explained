@@ -37,7 +37,8 @@ def test_every_source_is_dated_and_used():
     used = {f["src"] for f in all_fields()} | {c["src"] for c in a.CLAIMS.values()} | {m["src"] for m in a.MODELS.values()}
     used |= {x for f in [*a.FAMILIES, *a.PUBLISHED.values(), *a.OTHER_PARTS.values()] for x in f.get("also", [])}
     for sid, s in a.SOURCES.items():
-        assert s["accessed"] == a.ACCESSED == "2026-10-15"
+        assert a.ACCESSED == "2026-10-15" and a.ACCESSED_42 == "2026-10-16"
+        assert s["accessed"] in (a.ACCESSED, a.ACCESSED_42), sid
         assert s["url"].startswith("https://")
         assert sid in used, f"source {sid} is never cited"
 
@@ -147,11 +148,13 @@ def test_chain_steps_sum_to_the_decode_bound():
 
 def test_validation_checks():
     v = {r["id"]: r for r in a.validation()}
-    assert len(v) == 9
+    assert len(v) == 10
     assert v["cerebras-70b-wafers"]["ratio"] == 1.0
     assert v["cerebras-20b-wafer"]["ratio"] == 1.0
     assert v["groq-70b-chips"]["model"] == 301
-    assert 0.18 < v["mlperf-h100"]["ratio"] < 0.2
+    # with prefill counted (mean prompt 222.33 tokens, brief 42) both GPU rows reach about a third
+    assert 0.3 < v["mlperf-h100"]["ratio"] < 0.4
+    assert 0.3 < v["mlperf-gb200"]["ratio"] < 0.4
     for k in ("groq-70b-tps", "cerebras-70b-tps", "cerebras-8b-tps"):
         assert v[k]["ratio"] < 0.1  # the bound leaves out per-layer latency
     # the SN40L paper's 8B figure, without speculative decoding, is about 0.58 of the bandwidth bound
@@ -159,7 +162,7 @@ def test_validation_checks():
     # with speculative decoding the 70B figure beats a one-token-per-step bound
     assert v["sn40l-70b-tps"]["ratio"] > 1 and v["sn40l-70b-tps"]["kind"] == "speculative"
     b = a.band()
-    assert b["capacity"]["n"] == 3 and b["latency"]["n"] == 4
+    assert b["capacity"]["n"] == 3 and b["latency"]["n"] == 4 and b["throughput"]["n"] == 2
     assert "speculative" not in b
 
 
@@ -259,3 +262,50 @@ def test_choose_covers_every_family_once():
             assert 0 < r["util"] <= 1
     by = {r["family"]: r for r in rows}
     assert by["gpu"]["t_decode"] == a.decode("h100", "llama3-70b", "fp8", 1, 1024)["t_step"]
+
+
+def test_mlperf_ceiling_counts_prefill():
+    P = {k: f["v"] for k, f in a.PUBLISHED.items()}
+    m = a.mlperf_ceiling("h100", "llama2-70b", "fp8", 8, P["mlperf-input-mean"], P["mlperf-tokens-per-sample"])
+    # the old decode-only ceiling is the same function with no prompt and no attention
+    assert m["decodeOnly"] == a.throughput_ceiling("h100", "llama2-70b", "fp8", 8)
+    assert m["ceiling"] < m["decodeOnly"]
+    assert 0.4 < m["prefillShare"] < 0.45  # 222 prompt tokens against 294 output tokens
+    sh = a.shape("llama2-70b")
+    f = a.sample_flops("llama2-70b", 0, 1)
+    assert f["prefill"] == 0 and f["total"] == 2 * sh["matmul_params"] + sh["attn_flops_per_pos"] * 0.5
+    assert P["mlperf-input-mean"] == pytest.approx(222.3298, abs=1e-4)
+
+
+def test_floor_fit_is_leave_one_out():
+    f = a.floor_fit()
+    rows = {r["id"]: r for r in f["rows"]}
+    assert set(rows) == set(a.FLOOR_CHECKS)
+    for r in f["rows"]:
+        others = [x["per_layer"] for x in f["rows"] if x["id"] != r["id"]]
+        assert r["tauLoo"] == pytest.approx(sum(others) / 3, rel=1e-12)
+        assert r["tPred"] == pytest.approx(r["t_model"] + r["layers"] * r["tauLoo"], rel=1e-12)
+    assert f["tau"] == pytest.approx(sum(r["per_layer"] for r in f["rows"]) / 4, rel=1e-12)
+    # the term turns misses of up to 770x into misses of under 2x
+    assert f["worstBound"] > 700 and f["worstPred"] < 2
+    # and on the wafer, the floor is nearly all of a token's time
+    assert rows["cerebras-70b-tps"]["floorShare"] > 0.99
+
+
+def test_critical_path_adds_up():
+    for c in a.FLOOR_CHECKS:
+        r = next(x for x in a.floor_fit()["rows"] if x["id"] == c)
+        st = a.critical_path_steps(c, "own")
+        assert len(st) == r["layers"] + 1
+        assert st[-1]["t"] == pytest.approx(r["t_published"], rel=1e-9)
+        assert a.critical_path_steps(c, "none")[-1]["t"] == pytest.approx(r["t_model"], rel=1e-9)
+
+
+def test_new_parts():
+    m = a.part("mi355x")
+    assert (m["peak_bf16"], m["peak_fp8"], m["off_bytes"], m["off_bw"]) == (2.5e15, 5e15, 288e9, 8e12)
+    # 288 GB holds Llama 3.1 70B at FP8 on one GPU, as the B200's 186 GB does
+    assert a.placement("mi355x", "llama3-70b", "fp8", 1, 4096)["chips"] == 1
+    e = a.edge_bound("v80", "llama3-8b", 4, 1024)
+    assert e["fits"] and e["t_comp"] is None
+    assert e["tok_s"] == pytest.approx(820e9 / e["bytes"], rel=1e-12)

@@ -7,6 +7,8 @@
 import { describe, expect, it } from "vitest";
 
 import fx from "../fixtures/accel_fixtures.json";
+import { pathCaption } from "@/lib/accel/captions";
+import type { FloorFit, FloorMode, PathStep } from "@/lib/accel/model";
 
 import {
   chainCaption,
@@ -316,5 +318,31 @@ describe("captions: the other branches", () => {
       chooseCaption(rows[1]!, 8, "Llama 3.1 70B", partShort(rows[1]!.part)),
     ).toContain("energy not disclosed");
     expect(partShort("h100")).toBe("H100 SXM");
+  });
+});
+
+describe("chapter 10: the per-layer floor frames", () => {
+  it("captions every mode from the reference's steps", () => {
+    const fit = fx.floor as unknown as FloorFit;
+    for (const c of fx.path as unknown as {
+      id: string;
+      mode: FloorMode;
+      out: PathStep[];
+    }[]) {
+      const r = fit.rows.find((x) => x.id === c.id)!;
+      const first = pathCaption(c.out[0]!, r, c.mode);
+      expect(first).toContain(r.label);
+      expect(first).toContain(
+        c.mode === "fitted"
+          ? "fitted on the other three"
+          : c.mode === "own"
+            ? "own floor"
+            : "no floor",
+      );
+      const mid = pathCaption(c.out[1]!, r, c.mode);
+      expect(mid).toMatch(/^Layer 1 of \d+:/);
+      const last = pathCaption(c.out[c.out.length - 1]!, r, c.mode);
+      expect(last).toContain("the system published");
+    }
   });
 });
