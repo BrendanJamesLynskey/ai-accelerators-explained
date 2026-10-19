@@ -11,6 +11,8 @@ The seventh family builds a chip out of many small, ordinary processors. Tenstor
 
 Two things set it apart from the families so far. Its memory is modest: <V of="part.blackhole.sram_bytes" fmt="bytes" /> of SRAM spread over the cores, and <V of="part.blackhole.off_bytes" fmt="bytes" /> of GDDR6 at <V of="part.blackhole.off_bw" fmt="rate" />, the memory of a graphics card rather than HBM. And its scale-out is built into the chip: the p150a card has four 800G Ethernet ports, <V of="part.blackhole.c2c_bidir" fmt="rate" /> in both directions, so cards connect directly to each other without a separate network card or switch chip.
 
+<span id="a-mesh" />
+
 The animation runs one decoder layer of Llama 3.1 70B in FP8, split over <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).cards" fmt="int" /> cards by tensor parallelism, the fewest whose GDDR6 holds it. On each matrix step every card streams its third of the weights from GDDR6, spread over its cores: the layer's matrices come to <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).layer_per_core" fmt="bytes" /> per core, more than a core's <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).core_sram" fmt="bytes" /> of SRAM, so a layer cannot stay resident and the cores refill on every token. After the attention output and the MLP down projection, the cards add their partial results with an all-reduce over Ethernet. At batch 1 that moves a few kilobytes, so its bandwidth time is <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).t_eth" fmt="time" /> of the layer's <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).t" fmt="time" />. What it really costs is latency, which Tenstorrent does not state, so the model leaves it out.
 
 </Layer>
@@ -21,6 +23,8 @@ The animation runs one decoder layer of Llama 3.1 70B in FP8, split over <V of="
 />
 
 ## Where a mesh wins and loses
+
+<span id="a-wins" />
 
 Per card the bound is set by GDDR6: one decode step of Llama 3.1 8B in FP8 on one card is <V of="decode(blackhole,llama3-8b,fp8,1,1024).t_step" fmt="time" />, <V of="decode(blackhole,llama3-8b,fp8,1,1024).tok_s_user" fmt="num" /> tokens per second for one user, against <V of="decode(h100,llama3-8b,fp8,1,1024).tok_s_user" fmt="num" /> on an H100, whose HBM is <V of="part.h100.off_bw" fmt="rate" />. Splitting over more cards divides that time almost exactly, because each card reads less and the Ethernet carries only activations: with eight cards, the 70B layer takes <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,8).t" fmt="time" />. The board's power is <V of="part.blackhole.power_w" fmt="watts" />, so at the bound one token of the 8B model costs <V of="decode(blackhole,llama3-8b,fp8,1,1024).j_per_token" fmt="num" /> J on one card at batch 1.
 
@@ -67,3 +71,69 @@ const tc = fl / pk;
 - Tenstorrent, [Blackhole product page](https://tenstorrent.com/hardware/blackhole) (specifications table); Sze, Chen, Yang and Emer, [Efficient processing of deep neural networks](https://arxiv.org/abs/1703.09039), 2017, on spatial architectures.
 
 </Callout>
+
+<CheckYourself>
+
+<Check
+  id="a07-q1"
+  n={1}
+  input="number"
+  of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).cards"
+  fmt="int"
+  tol={0}
+  q="Llama 3.1 70B in FP8: what is the fewest Blackhole cards whose GDDR6 holds it?"
+  href="#a-mesh"
+  more="One layer over the cards"
+>
+  <V of="meshLayer(blackhole,llama3-70b,fp8,1,1024,3).cards" fmt="int" />, at
+  <V of="part.blackhole.off_bytes" fmt="bytes" /> each, split by tensor
+  parallelism.
+</Check>
+
+<Check
+  id="a07-q2"
+  n={2}
+  choices={[
+    "Bandwidth: it carries the weights",
+    "Latency: at batch 1 it moves only a few kilobytes of activations",
+    "Nothing at all",
+  ]}
+  answer={1}
+  q="At batch 1, what does the Ethernet all-reduce between the cards really cost?"
+  href="#a-mesh"
+  more="One layer over the cards"
+>
+  Its bandwidth time is <V v="ch07.eth" fmt="time" /> of the layer's
+  <V v="ch07.layer" fmt="time" />. What it costs is latency per hop, which the
+  vendor does not state.
+</Check>
+
+<Check
+  id="a07-q3"
+  n={3}
+  input="number"
+  of="decode(blackhole,llama3-8b,fp8,1,1024).tok_s_user"
+  q="Llama 3.1 8B in FP8 on one card, one user: how many tokens per second at the bound?"
+  href="#a-wins"
+  more="Where a mesh wins and loses"
+>
+  <V of="decode(blackhole,llama3-8b,fp8,1,1024).tok_s_user" fmt="num" />, set by
+  GDDR6 at <V of="part.blackhole.off_bw" fmt="rate" />; an H100 gets
+  <V of="decode(h100,llama3-8b,fp8,1,1024).tok_s_user" fmt="num" /> from HBM.
+</Check>
+
+</CheckYourself>
+
+<Remember>
+
+- A mesh builds the chip from many small cores, each with SRAM and RISC-V data movers, programmed core by core.
+- Memory is modest (GDDR6, not HBM), so one card's decode is bounded by GDDR6.
+- Ethernet is on the chip: cards connect directly, and splitting over more cards divides the time.
+- At batch 1 the all-reduce costs latency, not bandwidth.
+
+<Keep>
+  Tensor parallelism over $c$ cards divides each card's weight read by $c$; the
+  all-reduce adds $2(c-1)/c$ of the activations per card.
+</Keep>
+
+</Remember>

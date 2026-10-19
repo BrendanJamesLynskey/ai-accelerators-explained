@@ -9,9 +9,15 @@
 
 [Systolic Arrays Explained, chapter 8](https://systolic-arrays-explained.vercel.app/learn/08-other-ways) describes the principle: store each weight as a conductance in a crossbar, apply the inputs as voltages, and the currents summing down each column are the dot products, "the ultimate form of a weight stationary dataflow". This chapter puts a real chip's numbers on it and runs the decoder layer through it.
 
+<span id="a-hermes" />
+
 IBM's HERMES project chip is a research chip, not a product: <V of="imc.hermes.cores" fmt="int" /> cores in a <V of="imc.hermes.process" fmt="raw" /> process, each a <V of="imc.hermes.rows" fmt="int" /> × <V of="imc.hermes.cols" fmt="int" /> crossbar of phase-change memory, <V of="imc.hermes.devices_per_weight" fmt="int" /> devices per weight, with an ADC on every output line. One analogue matrix-vector multiply takes <V of="imc.hermes.lat_1p" fmt="time" /> in its fast read mode and <V of="imc.hermes.lat_4p" fmt="time" /> in its precise one, and the paper measures <V of="imc.hermes.tops_1p" fmt="ops" /> at <V of="imc.hermes.topsw_1p" fmt="opsw" /> with 8-bit inputs and outputs.
 
+<span id="a-crossbars" />
+
 The animation programs Llama 3.1 8B's weights into crossbars once, then runs one layer for one token. The layer's four weight matrices cut into <V of="imcLayer(llama3-8b,1).layer_tiles" fmt="int" /> tiles: <V of="imcLayer(llama3-8b,1).layer_chips" fmt="num" /> chips' worth for a single layer, and <V of="imcLayer(llama3-8b,1).chips" fmt="int" /> chips for the whole model. Each matrix stage is one analogue multiply on all its tiles at once, so the crossbars spend just <V of="imcLayer(llama3-8b,1).t_layer" fmt="time" /> on a layer and <V of="imcLayer(llama3-8b,1).t_token" fmt="time" /> on a whole token, and <V of="imcLayer(llama3-8b,1).e_token" fmt="num" /> J. No weight moves.
+
+<span id="a-problems" />
 
 That is the promise. The animation also shows the three problems.
 
@@ -74,3 +80,71 @@ psums += (tk - 1) * g.n;
 - Optical computing: [Compute in Transit](https://compute-in-transit-results.vercel.app) and the [Fourier Optics Inference series](https://brendanjameslynskey.github.io/LLM_Hub_Fourier_Optics_Inference/).
 
 </Callout>
+
+<CheckYourself>
+
+<Check
+  id="a09-q1"
+  n={1}
+  input="number"
+  of="imcLayer(llama3-8b,1).chips"
+  fmt="int"
+  q="Program Llama 3.1 8B's weights into HERMES crossbars. How many chips does the whole model need?"
+  href="#a-crossbars"
+  more="The model in crossbars"
+>
+  <V of="imcLayer(llama3-8b,1).chips" fmt="int" />: a weight occupies its cells
+  for good, so capacity is one cell group per weight, and an 8B model is
+  billions of them.
+</Check>
+
+<Check
+  id="a09-q2"
+  n={2}
+  input="number"
+  of="adcBits(8,8,256)"
+  fmt="int"
+  tol={0}
+  q="An exact column sum of 256 products of 8-bit inputs and 8-bit weights needs how many bits?"
+  href="#a-problems"
+  more="The three problems"
+>
+  <V of="adcBits(8,8,256)" fmt="int" />: $8 + 8 + \log_2 256$. The chip's path
+  is <V of="imc.hermes.io_bits" fmt="int" />
+  -bit, and device noise and drift sit below that.
+</Check>
+
+<Check
+  id="a09-q3"
+  n={3}
+  choices={[
+    "The KV cache changes every token, so it cannot be programmed into conductances",
+    "Attention needs FP32",
+    "Crossbars cannot multiply",
+  ]}
+  answer={0}
+  q="Why does attention not run in the crossbars?"
+  href="#a-problems"
+  more="The three problems"
+>
+  The crossbars hold fixed weights, programmed once. Attention multiplies by the
+  KV cache, which grows every token, so it runs in digital logic beside the
+  crossbars.
+</Check>
+
+</CheckYourself>
+
+<Remember>
+
+- A crossbar computes a matrix-vector product in place: weights as conductances, inputs as voltages, Kirchhoff sums the currents.
+- No weight moves, which removes the cost that dominates every other family's decode.
+- The price is capacity (one cell group per weight) and precision (ADCs, noise, drift).
+- Attention and the digital partial sums stay outside the crossbars.
+
+<Keep>
+  Exact sum width: $b_x + b_w + \log_2(\text{rows})$ bits,
+  <V of="adcBits(8,8,256)" fmt="int" /> for 8-bit inputs and weights over 256
+  rows.
+</Keep>
+
+</Remember>

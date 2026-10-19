@@ -20,6 +20,9 @@ import {
   RooflineWidget,
   WaferWidget,
 } from "@/components/interactive/lazy";
+import { CheckYourself } from "@/components/learn/CheckYourself";
+import { Keep, Remember } from "@/components/learn/Remember";
+import { Check } from "@/components/mdx/Check";
 import { Eq } from "@/components/mdx/Eq";
 import { V } from "@/components/mdx/V";
 import {
@@ -37,6 +40,10 @@ export const mdxComponents: NonNullable<MDXRemoteProps["components"]> = {
   pre: MdxPre,
   Layer,
   Callout,
+  CheckYourself,
+  Check,
+  Remember,
+  Keep,
   Eq,
   V,
   PartTable,

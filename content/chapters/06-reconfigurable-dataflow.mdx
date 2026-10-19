@@ -11,7 +11,11 @@ A GPU runs a model as a sequence of kernels: one for the normalisation, one for 
 
 SambaNova's SN40L is the example the model runs. Each socket has <V of="part.sn40l.units" fmt="int" /> Pattern Compute Units and as many Pattern Memory Units, <V of="part.sn40l.sram_bytes" fmt="bytes" /> of on-chip SRAM between them, and <V of="part.sn40l.peak_bf16" fmt="flops" /> of BF16 compute. The paper describes how the compiler fuses "hundreds of complex operations with arbitrary access patterns into a single kernel call".
 
+<span id="a-fusion" />
+
 The animation runs one decoder layer of Llama 3.1 8B both ways on one socket. In a 2,048-token prefill, the kernel-by-kernel layer moves <V of="layerTraffic(sn40l,llama3-8b,bf16,2048,1,2048,true,false).bytes" fmt="bytes" /> to and from HBM: the activations between operations are as big as the weights, and unfused attention writes and re-reads its whole score matrix. Fused, it moves <V of="layerTraffic(sn40l,llama3-8b,bf16,2048,1,2048,true,true).bytes" fmt="bytes" />, and because the stages overlap, the layer's time is the larger of its total memory time and its total compute time, not the sum of each kernel's: <V of="layerTraffic(sn40l,llama3-8b,bf16,2048,1,2048,true,true).t" fmt="time" /> against <V of="layerTraffic(sn40l,llama3-8b,bf16,2048,1,2048,true,false).t" fmt="time" />.
+
+<span id="a-decode-fusion" />
 
 Switch the work to a decode step at batch 1 and the difference almost vanishes: <V of="layerTraffic(sn40l,llama3-8b,bf16,1,1,8192,false,false).bytes" fmt="bytes" /> against <V of="layerTraffic(sn40l,llama3-8b,bf16,1,1,8192,false,true).bytes" fmt="bytes" />. One token's activations are tiny next to the weights, which every design must read. What fusion buys in decode is not bytes but overhead: no kernel launches between operations, and weight loads overlapped with compute. The SN40L paper reports that this reaches "over 85% of HBM bandwidth", where GPU implementations "rarely exceed 50%". The model cannot see launch overhead, so it does not credit either claim; the validation below compares the paper's measured speed with the bandwidth bound instead.
 
@@ -29,6 +33,8 @@ The SN40L's second idea is its memory. Besides the SRAM and <V of="part.sn40l.of
 The SN50, SambaNova's fifth generation, keeps the three tiers with <V of="other.sn50.sram_bytes" fmt="bytes" /> of SRAM per chip and quotes <V of="other.sn50.peak_bf16" fmt="flops" /> of BF16; the page does not give its HBM bandwidth or say that it is shipping, so the model does not run it.
 
 ## What the paper measured
+
+<span id="a-measured" />
 
 The SN40L paper reports Llama 3.1 8B at <V of="pub.sn40l-8b-tps" fmt="int" /> output tokens per second for one user on <V of="pub.sn40l-sockets" fmt="int" /> sockets, in BF16 at an 8K sequence length: <V of="val.sn40l-8b-tps.ratio" fmt="pct" /> of the model's bandwidth bound, by far the closest any published speed in this site comes to its bound. Its 70B figure, <V of="pub.sn40l-70b-tps" fmt="int" /> tokens per second, is <V of="val.sn40l-70b-tps.ratio" fmt="num" /> times the one-token-per-step bound: the paper used speculative decoding there, which emits several tokens per read of the weights, so that row is shown but kept out of the validation band.
 
@@ -92,3 +98,73 @@ if (fused) {
 - Prabhakar et al., [SambaNova SN40L: scaling the AI memory wall with dataflow and composition of experts](https://arxiv.org/abs/2405.07518), 2024; SambaNova, [RDU chip page](https://sambanova.ai/technology/sn40l-rdu-ai-chip) and [SN50 datasheet](https://sambanova.ai/hubfs/SambaNova%20SN50%20RDU.pdf); Jia, Tillman, Maggioni and Scarpazza, [Dissecting the Graphcore IPU architecture via microbenchmarking](https://arxiv.org/abs/1912.03413), 2019.
 
 </Callout>
+
+<CheckYourself>
+
+<Check
+  id="a06-q1"
+  n={1}
+  input="number"
+  v="ch06.prefillSpeedup"
+  tol={0.05}
+  q="A 2,048-token prefill of one Llama 3.1 8B layer on an SN40L: how many times faster is the fused layer than the kernel-by-kernel one?"
+  href="#a-fusion"
+  more="Fusing a layer"
+>
+  <V v="ch06.prefillSpeedup" fmt="num" /> times: the layer takes
+  <V v="ch06.prefillKernels" fmt="time" /> kernel by kernel and
+  <V v="ch06.prefillFused" fmt="time" /> fused. The activations stay on chip,
+  and the fused stages overlap.
+</Check>
+
+<Check
+  id="a06-q2"
+  n={2}
+  choices={[
+    "About half",
+    "Almost nothing: one token's activations are tiny next to the weights",
+    "Tenfold",
+  ]}
+  answer={1}
+  q="In a batch-1 decode step, how much HBM traffic does fusion save?"
+  href="#a-decode-fusion"
+  more="Fusion in decode"
+>
+  Kernel by kernel the step moves <V v="ch06.decodeKernels" fmt="bytes" />, and
+  fused it moves <V v="ch06.decodeFused" fmt="bytes" />: every design must read
+  the weights. In decode, fusion buys overhead (no launches, overlapped loads),
+  not bytes.
+</Check>
+
+<Check
+  id="a06-q3"
+  n={3}
+  input="slider"
+  min={0}
+  max={100}
+  step={1}
+  of="val.sn40l-8b-tps.ratio"
+  fmt="pct"
+  abs={5}
+  q="The SN40L paper's measured Llama 3.1 8B speed is what share of the model's bandwidth bound?"
+  href="#a-measured"
+  more="What the paper measured"
+>
+  <V of="val.sn40l-8b-tps.ratio" fmt="pct" />, the closest any published speed
+  on this site comes to its bound.
+</Check>
+
+</CheckYourself>
+
+<Remember>
+
+- A dataflow chip turns a layer's graph into a circuit: results stream from one operation into the next.
+- Fusion removes the activations' round trips to HBM, which matters in prefill, hardly at all in decode.
+- Fused, a layer takes the larger of its total memory time and total compute time, not the sum of each kernel's.
+- Three memory tiers (SRAM, HBM, DDR) keep many models resident and switch between them.
+
+<Keep>
+  $t_{\text{fused}} = \max(\sum_i B_i/\beta,\ \sum_i F_i/P) \le t_{\text{kernels}}$.
+</Keep>
+
+</Remember>

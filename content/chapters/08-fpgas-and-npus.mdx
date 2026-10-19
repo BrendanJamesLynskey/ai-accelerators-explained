@@ -9,7 +9,11 @@
 
 The eighth family is defined less by an architecture than by a budget. An **edge NPU** sits inside a phone, laptop or camera chip and has a few watts and whatever memory the device has. An **FPGA**, or an adaptive SoC that pairs programmable logic with arrays of small AI engines, is used when a design needs hardware shaped to one model. Both meet the same wall the animation shows: at batch 1, one user's token costs one read of every weight, and these devices have the least memory bandwidth of any family here.
 
+<span id="a-npu" />
+
 Apple's M4 is the example NPU. Its 16-core Neural Engine is rated at <V of="part.m4.peak_int8" fmt="ops" /> (Apple does not state the format; the model treats it as the 8-bit rate), and it shares the chip's unified memory with the CPU and GPU: up to <V of="part.m4.off_bytes" fmt="bytes" /> at <V of="part.m4.off_bw" fmt="rate" />. Llama 3.1 8B with 8-bit weights is a <V of="edgeBound(m4,llama3-8b,8,1024).weights" fmt="bytes" /> read per token, so the bound is <V of="edgeBound(m4,llama3-8b,8,1024).tok_s" fmt="num" /> tokens per second, and the Neural Engine's arithmetic is busy for <V of="edgeBound(m4,llama3-8b,8,1024).t_comp" fmt="time" /> of each <V of="edgeBound(m4,llama3-8b,8,1024).t" fmt="time" /> step. The rated operations per second hardly matter for decode; the bytes do. That is why the animation steps the weight width down: at 4 bits the same model reads half as much and the bound doubles to <V of="edgeBound(m4,llama3-8b,4,1024).tok_s" fmt="num" /> tokens per second.
+
+<span id="a-widths" />
 
 Narrow formats are where the two halves of this family differ. An NPU runs the formats its hardware and toolchain support: Hailo's 10H module, for example, is rated at <V of="other.hailo10h.peak_int4" fmt="ops" /> in INT4 and <V of="other.hailo10h.peak_int8" fmt="ops" /> in INT8, at <V of="other.hailo10h.power_w" fmt="watts" /> typical. An FPGA can implement any width at all, 6, 5 or 3 bits, with arithmetic built for exactly that width, so a weight costs exactly its bits in memory and in logic. The animation's widths between 8 and 4 bits are the ones an FPGA can serve directly and most NPUs cannot.
 
@@ -21,6 +25,8 @@ Narrow formats are where the two halves of this family differ. An NPU runs the f
 />
 
 ## FPGAs: an HBM card, published LLM designs and the flow
+
+<span id="a-v80" />
 
 **The current part.** AMD's Alveo V80 is the HBM FPGA card of this generation: a Versal HBM device (XCV80) with <V of="other.v80.luts" fmt="int" /> look-up tables, <V of="other.v80.dsps" fmt="int" /> DSP slices and 132 Mb of block RAM plus 541 Mb of UltraRAM (about <V of="other.v80.sram_bytes" fmt="bytes" /> on chip), beside <V of="other.v80.off_bytes" fmt="bytes" /> of HBM2e at <V of="other.v80.off_bw" fmt="rate" />, in a card of up to <V of="other.v80.power_w" fmt="watts" /> ([AMD's specifications](https://www.amd.com/en/products/accelerators/alveo/v80/a-v80-p64g-pq-g.html)). Pick it in the animation. Llama 3.1 8B fits in its HBM at any width shown; at 4 bits the decode bound is <V of="edgeBound(v80,llama3-8b,4,1024).tok_s" fmt="num" /> tokens per second for one user, <V of="edgeBound(v80,llama3-8b,4,1024).j_per_token" fmt="num" /> J per token at the TDP, and at 3 bits <V of="edgeBound(v80,llama3-8b,3,1024).tok_s" fmt="num" />. Two things follow. The on-chip memory, large for an FPGA, holds about a hundredth of the 8B model's 8-bit weights, so an LLM on this card streams its weights from HBM like a GPU does, with a quarter of an H100's bandwidth. And AMD gives no TOPS figure, because there is none to give: the arithmetic is whatever the design builds from those DSPs and LUTs, so the model has no compute term for the FPGA, and the bound is the memory's. The earlier Alveo V70, an AI Engine part with DDR, is discontinued (in the table for comparison: <V of="edgeBound(v70,llama3-8b,4,1024).tok_s" fmt="num" /> tokens per second at 4 bits from <V of="other.v70.off_bw" fmt="rate" /> of DDR).
 
@@ -68,3 +74,68 @@ const nbytes = s.matmul_params * wb + ctx * s.kv_elems_per_token * kvb;
 - Apple, [M4 announcement](https://www.apple.com/newsroom/2024/05/apple-introduces-m4-chip/) and [MacBook Pro with M4](https://www.apple.com/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/); AMD, [AI Engine technology](https://www.amd.com/en/products/adaptive-socs-and-fpgas/technologies/ai-engine.html) and [Alveo V70](https://www.amd.com/en/products/accelerators/alveo/v70.html); Hailo, [Hailo-10H M.2 module](https://hailo.ai/products/ai-accelerators/hailo-10h-m-2-ai-acceleration-module/).
 
 </Callout>
+
+<CheckYourself>
+
+<Check
+  id="a08-q1"
+  n={1}
+  input="number"
+  of="edgeBound(m4,llama3-8b,8,1024).tok_s"
+  q="Llama 3.1 8B with 8-bit weights on an M4: how many tokens per second at the bound?"
+  href="#a-npu"
+  more="An edge NPU"
+>
+  <V of="edgeBound(m4,llama3-8b,8,1024).tok_s" fmt="num" />: each token reads
+  <V of="edgeBound(m4,llama3-8b,8,1024).weights" fmt="bytes" /> at
+  <V of="part.m4.off_bw" fmt="rate" />. The Neural Engine's rated operations
+  hardly matter.
+</Check>
+
+<Check
+  id="a08-q2"
+  n={2}
+  input="number"
+  v="ch08.fourOverEight"
+  tol={0.05}
+  q="Cut the weights to 4 bits. How many times faster is the bound?"
+  href="#a-npu"
+  more="An edge NPU"
+>
+  <V v="ch08.fourOverEight" fmt="num" /> times, to
+  <V of="edgeBound(m4,llama3-8b,4,1024).tok_s" fmt="num" /> tokens per second:
+  half the bytes per token (the KV cache keeps it just under two).
+</Check>
+
+<Check
+  id="a08-q3"
+  n={3}
+  choices={[
+    "It is too slow to quote",
+    "Its arithmetic is whatever a design builds from its DSPs and LUTs",
+    "It has no arithmetic: it is a memory card",
+  ]}
+  answer={1}
+  q="Why does AMD give no TOPS figure for the Alveo V80 FPGA card?"
+  href="#a-v80"
+  more="The current part"
+>
+  An FPGA has no fixed datapath: the arithmetic, and its number widths, are what
+  the design builds. So the model has no compute term for it, and the bound is
+  its HBM's.
+</Check>
+
+</CheckYourself>
+
+<Remember>
+
+- Edge NPUs and FPGAs live on a budget: a few watts and modest memory bandwidth.
+- At batch 1 every token is one read of every weight, so bytes, not TOPS, set the speed.
+- Halving the weight width nearly doubles the bound.
+- An FPGA can build any width exactly, in memory and in logic; the price is a hardware design flow.
+
+<Keep>
+  Batch-1 tokens per second ≈ bandwidth ÷ bytes of weights (plus KV cache).
+</Keep>
+
+</Remember>
