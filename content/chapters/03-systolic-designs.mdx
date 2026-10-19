@@ -11,6 +11,8 @@ The second family keeps the GPU's memory system (weights in HBM) but builds its 
 
 The array is a fixed pipeline, so the compiler, not the hardware, plans every transfer: Google's TPUs take their programs through XLA, and VMEM, the on-chip scratchpad in front of the MXUs, is sized and filled by the compiler and by custom kernels rather than by a cache.
 
+<span id="a-array" />
+
 The animation runs one 1,024 × 1,024 matmul. Each tile of weights holds the array for $\max(m, R)$ cycles: the $m$ input rows of the batch take $m$ cycles to stream through, and the next tile's $R$ rows of weights take $R$ cycles to shift in behind it. With a batch of 1 the array spends 1 cycle in <V of="mxu(256,256,1,1024,1024).per_tile" fmt="int" /> multiplying, so one decoder layer of the 70B model uses <V of="layerMxu(256,256,llama3-70b,1).util" fmt="pct" /> of a 256 × 256 array. At a batch of 16 it uses <V of="layerMxu(256,256,llama3-70b,16).util" fmt="pct" />; at a batch of 256, <V of="layerMxu(256,256,llama3-70b,256).util" fmt="pct" />. A 128 × 128 array fills at half the batch: <V of="layerMxu(128,128,llama3-70b,128).util" fmt="pct" /> at 128. The big array's lesson for decode is the GPU's, sharpened: it wants a batch at least as tall as itself.
 
 </Layer>
@@ -21,6 +23,8 @@ The animation runs one 1,024 × 1,024 matmul. Each tile of weights holds the arr
 />
 
 ## The running workload on systolic chips
+
+<span id="a-decode-sys" />
 
 Because the weights live in HBM, decode on these chips is bounded the way it is on a GPU: by bytes over bandwidth. TPU7x reads its <V of="part.tpu-7x.off_bytes" fmt="bytes" /> of HBM at <V of="part.tpu-7x.off_bw" fmt="rate" />, so Llama 3.1 70B in FP8 fits on one chip and a batch-1 step is bounded at <V of="decode(tpu-7x,llama3-70b,fp8,1,1024).t_step" fmt="time" />. Trainium2 holds it in <V of="part.trn2.off_bytes" fmt="bytes" /> and reads at <V of="part.trn2.off_bw" fmt="rate" />: <V of="decode(trn2,llama3-70b,fp8,1,1024).t_step" fmt="time" />. TPU v6e has <V of="part.tpu-v6e.off_bytes" fmt="bytes" /> per chip, so the 16-bit model needs <V of="decode(tpu-v6e,llama3-70b,bf16,1,1024).chips" fmt="int" /> chips. The ridge points are GPU-like too: <V of="ridge(tpu-7x,fp8)" fmt="num" /> flops per byte for TPU7x in FP8, <V of="ridge(trn2,fp8)" fmt="num" /> for Trainium2. Its successor, Trainium3, is not in this site's model: AWS gives it "144 GB HBM3e per chip, 4.9 TB/s bandwidth - 1.7x higher than Trainium2" and "up to 2x MXFP8 compute throughput compared to Trainium2", in UltraServers of up to 144 chips ([AWS Trainium](https://aws.amazon.com/ai/machine-learning/trainium/), read 2026-10-16; [Racks, chapter 10](https://ai-racks-explained.vercel.app/learn/10-other-designs) uses those figures).
 
@@ -69,3 +73,75 @@ const macs = m * k * n;
 - Google Cloud, [TPU architecture](https://cloud.google.com/tpu/docs/system-architecture-tpu-vm), [TPU v6e](https://cloud.google.com/tpu/docs/v6e) and [TPU7x](https://cloud.google.com/tpu/docs/tpu7x); AWS Neuron, [Trainium2](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trainium2.html) and [NeuronCore-v3](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/neuron-core-v3.html).
 
 </Callout>
+
+<CheckYourself>
+
+<Check
+  id="a03-q1"
+  n={1}
+  input="number"
+  of="layerMxu(256,256,llama3-70b,1).util"
+  fmt="pct"
+  abs={0.3}
+  q="One decoder layer of the 70B model at batch 1 on a 256 × 256 array: what utilisation, in per cent?"
+  href="#a-array"
+  more="One matmul on the array"
+>
+  <V of="layerMxu(256,256,llama3-70b,1).util" fmt="pct" />: each weight tile
+  holds the array for <V of="mxu(256,256,1,1024,1024).per_tile" fmt="int" />{" "}
+  cycles (its rows shifting in) and multiplies for one.
+</Check>
+
+<Check
+  id="a03-q2"
+  n={2}
+  input="slider"
+  min={0}
+  max={100}
+  step={1}
+  of="layerMxu(256,256,llama3-70b,16).util"
+  fmt="pct"
+  abs={2}
+  q="And at a batch of 16?"
+  href="#a-array"
+  more="One matmul on the array"
+>
+  <V of="layerMxu(256,256,llama3-70b,16).util" fmt="pct" />, about $16/256$: a
+  batch below the array's height uses about $m/R$ of it. At 256 the array is
+  full (<V of="layerMxu(256,256,llama3-70b,256).util" fmt="pct" />
+  ).
+</Check>
+
+<Check
+  id="a03-q3"
+  n={3}
+  choices={[
+    "The systolic arrays' arithmetic rate",
+    "Bytes over HBM bandwidth, as on a GPU",
+    "The compiler's schedule",
+  ]}
+  answer={1}
+  q="What bounds a batch-1 decode step on a TPU7x?"
+  href="#a-decode-sys"
+  more="The running workload on systolic chips"
+>
+  The weights live in HBM, so a step is a read of them:
+  <V of="decode(tpu-7x,llama3-70b,fp8,1,1024).t_step" fmt="time" /> for the 70B
+  model in FP8 at <V of="part.tpu-7x.off_bw" fmt="rate" />.
+</Check>
+
+</CheckYourself>
+
+<Remember>
+
+- Systolic chips keep the GPU's memory system and build the matrix engine as a few large arrays.
+- A weight tile holds the array for $\max(m, R)$ cycles, so a batch below $R$ uses about $m/R$ of it.
+- The compiler (XLA on TPUs) plans every transfer; a scratchpad replaces the cache.
+- With weights in HBM, decode is bounded by bytes over bandwidth, as on a GPU.
+
+<Keep>
+  $U \approx \min(m, R)/R$: a big array wants a batch at least as tall as
+  itself.
+</Keep>
+
+</Remember>

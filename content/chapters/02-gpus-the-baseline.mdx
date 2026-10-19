@@ -9,7 +9,11 @@
 
 A GPU is the baseline every other family is measured against, so this chapter fixes its numbers and leaves the inside of the GPU to [GPU Kernels Explained](https://gpu-kernels-explained.vercel.app/learn/01-memory-hierarchy). An H100 SXM has <V of="part.h100.units" fmt="int" /> SMs with tensor cores, <V of="part.h100.off_bytes" fmt="bytes" /> of HBM read at <V of="part.h100.off_bw" fmt="rate" />, a <V of="part.h100.sram_bytes" fmt="bytes" /> L2 cache, and <V of="part.h100.peak_fp8" fmt="flops" /> of dense FP8. A B200 has <V of="part.b200.off_bytes" fmt="bytes" /> at <V of="part.b200.off_bw" fmt="rate" /> and <V of="part.b200.peak_fp8" fmt="flops" />.
 
+<span id="a-ridge" />
+
 Divide the peak rate by the bandwidth and you get the **ridge**: <V of="ridge(h100,fp8)" fmt="num" /> flops per byte on an H100, <V of="ridge(b200,fp8)" fmt="num" /> on a B200. A step that does fewer flops per byte it reads waits on memory; one that does more waits on the tensor cores.
+
+<span id="a-decode" />
 
 Decode sits far below the ridge. One step of Llama 3.1 70B in FP8 reads every weight once to do about two flops with it: <V of="decode(h100,llama3-70b,fp8,1,1024,8).intensity" fmt="num" /> flop per byte at batch 1. On eight H100s that bounds a step at <V of="decode(h100,llama3-70b,fp8,1,1024,8).t_step" fmt="time" />, or <V of="decode(h100,llama3-70b,fp8,1,1024,8).tok_s_user" fmt="num" /> tokens per second for the one user, with the tensor cores almost idle. Batching is how GPUs climb the slope: 64 sequences share each weight read, and the eight GPUs produce <V of="decode(h100,llama3-70b,fp8,64,1024,8).tok_s" fmt="num" /> tokens per second in all, though each user now gets <V of="decode(h100,llama3-70b,fp8,64,1024,8).tok_s_user" fmt="num" />. Each sequence also brings its own KV cache to read, so the climb slows; at 1,024-token contexts the step crosses the ridge only near a batch of 1,024, where the bound is <V of="decode(h100,llama3-70b,fp8,1024,1024,8).tok_s" fmt="num" /> tokens per second. Memory caps the batch too: eight H100s hold the weights plus <V of="maxBatch(h100,llama3-70b,fp8,1024,8)" fmt="int" /> such caches, and only <V of="maxBatch(h100,llama3-70b,fp8,8192,8)" fmt="int" /> at 8,192 tokens.
 
@@ -23,6 +27,8 @@ Prefill is the opposite case. A 2,048-token prompt reuses each weight 2,048 time
 />
 
 The B200 here is the one in NVIDIA's GB200 NVL72 rack, with the same figures as [AI Racks Explained](https://ai-racks-explained.vercel.app/learn/02-the-package): dense rates are half the GB200 page's sparse figures for each of a superchip's two GPUs, memory is the superchip's 372 GB split two ways (186 GB), and power is Blackwell's maximum board power (TGP), "up to 1,200W" ([NVIDIA's Blackwell Ultra blog](https://developer.nvidia.com/blog/inside-nvidia-blackwell-ultra-the-chip-powering-the-ai-factory-era/), Table 2), a GPU figure like the H100's 700 W TDP. The air-cooled HGX B200 is rated lower: half its page's 72 PFLOPS sparse FP8 over eight GPUs is 4.5 PFLOPS dense per GPU ([HGX](https://www.nvidia.com/en-us/data-center/hgx/)).
+
+<span id="a-mi355x" />
 
 AMD's Instinct MI355X is the other GPU line, and on paper it matches the B200 on rate and bandwidth: <V of="part.mi355x.peak_bf16" fmt="flops" /> BF16 and <V of="part.mi355x.peak_fp8" fmt="flops" /> FP8 dense, <V of="part.mi355x.off_bw" fmt="rate" /> of HBM3E, with a 256 MB last-level cache in front of it ([AMD's specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html), launched June 2025). Where it differs is capacity: <V of="part.mi355x.off_bytes" fmt="bytes" /> per GPU, against the B200's <V of="part.b200.off_bytes" fmt="bytes" />. Llama 3.1 70B in FP8 with a 4,096-token context fits on <V of="placement(mi355x,llama3-70b,fp8,1,4096).chips" fmt="int" /> of either; the difference shows in how much KV cache, so how big a batch, one GPU holds: <V of="maxBatch(mi355x,llama3-70b,fp8,4096,1)" fmt="int" /> sequences on an MI355X against <V of="maxBatch(b200,llama3-70b,fp8,4096,1)" fmt="int" /> on a B200 at that context. Its 1,400 W is a typical board power, so energy per token is not like for like with the B200's maximum. AMD's link figures (seven Infinity Fabric links at 153 GB/s) do not say whether they are per direction, so the model leaves the MI355X's chip-to-chip bandwidth blank.
 
@@ -74,3 +80,69 @@ const tComp = pk.flops === null ? null : flops / (g * pk.flops);
 - NVIDIA, [H100](https://www.nvidia.com/en-us/data-center/h100/), [GB200 NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) and [HGX](https://www.nvidia.com/en-us/data-center/hgx/) specifications; [Blackwell Ultra](https://developer.nvidia.com/blog/inside-nvidia-blackwell-ultra-the-chip-powering-the-ai-factory-era/) and [Hopper architecture in depth](https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/).
 
 </Callout>
+
+<CheckYourself>
+
+<Check
+  id="a02-q1"
+  n={1}
+  input="number"
+  of="ridge(h100,fp8)"
+  q="What is the H100's FP8 ridge point, in flops per byte of HBM?"
+  href="#a-ridge"
+  more="The ridge"
+>
+  The dense FP8 peak is <V of="part.h100.peak_fp8" fmt="flops" /> and the HBM
+  delivers <V of="part.h100.off_bw" fmt="rate" />: divide one by the other. A
+  batch-1 decode step does about 2 flops per byte, far below it.
+</Check>
+
+<Check
+  id="a02-q2"
+  n={2}
+  input="number"
+  of="decode(h100,llama3-70b,fp8,1,1024,8).tok_s_user"
+  q="Llama 3.1 70B in FP8 on eight H100s, one user: how many tokens per second at the bound?"
+  href="#a-decode"
+  more="Decode on a GPU"
+>
+  <V of="decode(h100,llama3-70b,fp8,1,1024,8).tok_s_user" fmt="num" />: one step
+  is a full read of the weights from HBM, bounded at
+  <V of="decode(h100,llama3-70b,fp8,1,1024,8).t_step" fmt="time" />, with the
+  tensor cores almost idle.
+</Check>
+
+<Check
+  id="a02-q3"
+  n={3}
+  choices={[
+    "Each user's speed rises",
+    "Each user's speed falls a little, while the total rises many times over",
+    "Each user's speed falls 64-fold",
+  ]}
+  answer={1}
+  q="Batch 64 sequences instead of one on the same eight H100s. What happens?"
+  href="#a-decode"
+  more="Decode on a GPU"
+>
+  The 64 sequences share each weight read, so the total climbs to
+  <V of="decode(h100,llama3-70b,fp8,64,1024,8).tok_s" fmt="num" /> tokens per
+  second, but each brings its own KV cache to read: each user now gets
+  <V of="decode(h100,llama3-70b,fp8,64,1024,8).tok_s_user" fmt="num" />.
+</Check>
+
+</CheckYourself>
+
+<Remember>
+
+- The ridge is peak over bandwidth; below it a step waits on memory.
+- Batch-1 decode is about 2 flops per byte: a full read of HBM per token, tensor cores idle.
+- Batching shares each weight read across sequences; their KV caches slow the climb and cap the batch.
+- Prefill reuses each weight once per prompt token, so it is compute-bound from the start.
+
+<Keep>
+  $t_{\text{step}} = \max\bigl((W + B T k_{\text{KV}})/(n\beta),\ F/(n\pi)\bigr)$: bytes or flops,
+  whichever is slower.
+</Keep>
+
+</Remember>

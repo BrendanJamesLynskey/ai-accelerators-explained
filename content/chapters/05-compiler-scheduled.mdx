@@ -9,7 +9,11 @@
 
 The fifth family removes the last things a chip decides for itself. Groq's first LPU, the GroqChip, has no caches and no DRAM: <V of="part.groqchip.sram_bytes" fmt="bytes" /> of SRAM read at up to <V of="part.groqchip.sram_bw" fmt="rate" />, wide functional slices for matrix and vector work at <V of="part.groqchip.peak_int8" fmt="int" /> INT8 operations per second, and <V of="part.groqchip.c2c_links" fmt="int" /> chip-to-chip links. Its compiler writes a **static schedule**: every instruction, every memory read and every transfer between chips happens on a cycle chosen before the program runs. Groq's ISCA 2022 paper describes "statically scheduled, deterministic execution" across many chips, kept in step by exchanging hardware counters over the links, so that even the network's transfers are scheduled and avoid contention.
 
+<span id="a-static" />
+
 That buys two things. A step takes exactly as long every time, so latency has no tail. And nothing is spent guessing: there are no cache misses, because there is no cache, and no arbitration, because the compiler already did it.
+
+<span id="a-chain" />
 
 The price is capacity. A model must fit in SRAM, so it is cut at layer boundaries into **stages** spread over many chips, and a token runs down the chain. Llama 2 70B in INT8 needs at least <V of="placement(groqchip,llama2-70b,int8,1,1024).chips" fmt="int" /> GroqChips just to hold its weights and one KV cache; Groq's 2023 demonstration used <V of="pub.groq-70b-chips" fmt="int" />, in nodes of <V of="part.groqchip.node_chips" fmt="int" />. The animation sends one token down that chain. Each stage's eight chips share its layers, so each reads only its slice of the weights: <V of="decode(groqchip,llama2-70b,int8,1,1024,576,8).t_mem" fmt="time" /> of SRAM reads for the whole token. Sharing costs latency: every layer's all-reduce inside a node and every hand-on between nodes is one hop of <V of="part.groqchip.hop_s" fmt="time" />, and those add up to <V of="decode(groqchip,llama2-70b,int8,1,1024,576,8).t_hops" fmt="time" />. The bound is <V of="decode(groqchip,llama2-70b,int8,1,1024,576,8).t_step" fmt="time" /> per token, <V of="decode(groqchip,llama2-70b,int8,1,1024,576,8).tok_s_user" fmt="num" /> tokens per second for one user. With one chip per stage instead, there are fewer hops but each chip reads its share alone: <V of="decode(groqchip,llama2-70b,int8,1,1024,0,1).t_step" fmt="time" />.
 
@@ -21,6 +25,8 @@ The price is capacity. A model must fit in SRAM, so it is cut at layer boundarie
 />
 
 ## What the demonstration reached, and what it cost
+
+<span id="a-demo" />
 
 Groq's chain served one user at above <V of="pub.groq-70b-tps" fmt="int" /> tokens per second, as reported by The Next Platform from Groq's demonstration: <V of="val.groq-70b-tps.ratio" fmt="pct" /> of the model's bound. As with the wafer, the bandwidth bound is not what limits a chain of SRAM chips; the published speed implies about <V of="overhead.groq-70b-tps.per_layer" fmt="time" /> per layer beyond it, which the sources do not break down. A wafer and a dataflow chip pay the same order of time per layer, so [chapter 10](/learn/10-choosing) models it as one per-layer floor and tests it on each machine in turn. What the model does capture is the trade: <V of="pub.groq-70b-chips" fmt="int" /> chips, each with a <V of="part.groqchip.power_w" fmt="watts" /> TDP, for one copy of a 70B model whose INT8 weights fit in one H100's HBM. With the pipeline full, one sequence per stage, that is <V of="decode(groqchip,llama2-70b,int8,1,1024,576,8).j_per_token" fmt="num" /> J per token at the bound.
 
@@ -69,3 +75,69 @@ for (let k = 0; k < st; k++) {
 - Abts et al., [A software-defined tensor streaming multiprocessor for large-scale machine learning](https://web.archive.org/web/20250612160012/https://groq.com/wp-content/uploads/2024/02/GroqISCAPaper2022_ASoftwareDefinedTensorStreamingMultiprocessorForLargeScaleMachineLearning-1.pdf), ISCA 2022; Groq, [GroqChip product brief](https://web.archive.org/web/20250615145238/https://groq.com/wp-content/uploads/2022/10/GroqChip%E2%84%A2-Processor-Product-Brief-v1.5.pdf); NVIDIA, [Groq 3 LPX](https://www.nvidia.com/en-us/data-center/lpx/); The Next Platform, [Groq's Llama 2 70B demonstration](https://www.nextplatform.com/2023/11/27/groq-says-it-can-deploy-1-million-ai-inference-chips-in-two-years/).
 
 </Callout>
+
+<CheckYourself>
+
+<Check
+  id="a05-q1"
+  n={1}
+  input="number"
+  of="placement(groqchip,llama2-70b,int8,1,1024).chips"
+  fmt="int"
+  q="Llama 2 70B in INT8 with one KV cache: at least how many GroqChips just to hold it?"
+  href="#a-chain"
+  more="The chain"
+>
+  <V of="placement(groqchip,llama2-70b,int8,1,1024).chips" fmt="int" />; Groq's
+  2023 demonstration used <V of="pub.groq-70b-chips" fmt="int" />, in nodes of
+  <V of="part.groqchip.node_chips" fmt="int" />.
+</Check>
+
+<Check
+  id="a05-q2"
+  n={2}
+  input="number"
+  v="ch05.oneChipOverEight"
+  tol={0.1}
+  q="Put one chip per stage instead of eight. How many times longer is a token's bound?"
+  href="#a-chain"
+  more="The chain"
+>
+  About <V v="ch05.oneChipOverEight" fmt="num" /> times longer: with eight chips
+  per stage a token takes <V v="ch05.eightChips" fmt="time" />, with one{" "}
+  <V v="ch05.oneChip" fmt="time" />. There are fewer hops, but each chip reads
+  its share of the weights alone.
+</Check>
+
+<Check
+  id="a05-q3"
+  n={3}
+  choices={[
+    "A faster average token, and some slow outliers",
+    "Every step takes exactly as long, and no cache misses or arbitration",
+    "More memory per chip",
+  ]}
+  answer={1}
+  q="What does a static, compiler-written schedule buy?"
+  href="#a-static"
+  more="What the schedule buys"
+>
+  Determinism: every instruction, read and transfer happens on a cycle fixed
+  before the program runs, so latency has no tail, and nothing is spent on
+  caches or arbitration because there are none.
+</Check>
+
+</CheckYourself>
+
+<Remember>
+
+- A compiler-scheduled chip has no caches and no DRAM: every transfer is on a cycle fixed in advance.
+- Static schedules make every step take the same time.
+- A model must fit in SRAM, so it is cut into stages over hundreds of chips.
+- Chips per stage divide the reading time; every hop and all-reduce adds latency.
+
+<Keep>
+  $t_{\text{token}} = W/(g\beta) + (S - 1 + 2L\,[g > 1])\, t_{\text{hop}}$.
+</Keep>
+
+</Remember>
