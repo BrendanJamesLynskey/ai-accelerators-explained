@@ -26,6 +26,12 @@ const CREDIT = [
   'href="https://brendanjameslynskey.github.io/">Brendan Lynskey</a>',
 ];
 
+/** The shared definitions link on /about (brief 44D). */
+const DEFINITIONS = [
+  "data-definitions-link",
+  'href="https://agent-harnesses-explained.vercel.app/definitions"',
+];
+
 type Result = { path: string; ok: boolean; detail: string };
 
 const headers: Record<string, string> = process.env.VERCEL_BYPASS
@@ -99,6 +105,7 @@ async function main(): Promise<void> {
     ]),
     checkPage(base, "/about", [
       ...CREDIT,
+      ...DEFINITIONS,
       "Validation band",
       'data-check="cerebras-70b-wafers"',
       'data-check="mlperf-h100"',
